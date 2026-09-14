@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Portail Documents — Classe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          paper: '#F7F4EC',
+          ink: '#1E2A3A',
+          inksoft: '#586274',
+          line: '#DAD3C0',
+          card: '#FFFEFB',
+          teal: {
+            DEFAULT: '#2F6F5E',
+            dark: '#234F43',
+            light: '#E4EEE9',
+          },
+          gold: {
+            DEFAULT: '#9C6B2B',
+            light: '#F3E7D3',
+          },
+          rust: {
+            DEFAULT: '#A8432E',
+            light: '#F5E1DB',
+          },
+        },
+        fontFamily: {
+          display: ['"Fraunces"', 'serif'],
+          sans: ['"IBM Plex Sans"', 'sans-serif'],
+          mono: ['"IBM Plex Mono"', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  body { background-color: #F7F4EC; }
+  ::selection { background: #2F6F5E; color: #FFFEFB; }
+  .tick { font-variant-numeric: tabular-nums; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .rise { animation: rise .35s ease both; }
+  .focus-ring:focus-visible { outline: 2px solid #2F6F5E; outline-offset: 2px; }
+  input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid #2F6F5E; outline-offset: 1px; }
+  .scrollbar-thin::-webkit-scrollbar { height: 6px; width: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: #DAD3C0; border-radius: 4px; }
+</style>
+</head>
+<body class="font-sans text-ink min-h-screen">
+
+<div id="app" class="min-h-screen flex flex-col"></div>
+
+<script>
+/* ============================================================
+   CONFIGURATION — modifiez ces valeurs pour votre classe
+   ============================================================ */
+const CONFIG = {
+  classTitle: "Portail Documents",
+  className: "Votre classe",
+  adminPassword: "changeme2026", // ⚠️ à changer avant de publier le site
+  maxFileMB: 3.5, // taille max par fichier (limite technique du stockage)
+  defaultCategories: ["Cours", "TD / TP", "Examens", "Annonces", "Autres"],
+};
+/* ============================================================ */
+
+let state = {
+  isAdmin: false,
+  documents: [],
+  search: "",
+  activeCategory: "Tous",
+  loading: true,
+  uploading: false,
+  error: null,
+};
+
+const root = document.getElementById('app');
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.innerText = str ?? "";
+  return d.innerHTML;
+}
+
+function humanSize(bytes) {
+  if (bytes < 1024) return bytes + " o";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " Ko";
+  return (bytes / (1024 * 1024)).toFixed(1) + " Mo";
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function extOf(name) {
+  const parts = name.split('.');
+  return parts.length > 1 ? parts.pop().toUpperCase() : "FICHIER";
+}
+
+function extColor(ext) {
+  const map = {
+    PDF: "rust", DOC: "teal", DOCX: "teal", XLS: "gold", XLSX: "gold",
+    PPT: "rust", PPTX: "rust", ZIP: "inksoft", JPG: "gold", PNG: "gold", JPEG: "gold",
+  };
+  return map[ext] || "inksoft";
+}
+
+function genId() {
+  return 'doc_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+/* ============================================================
+   STOCKAGE — les documents sont partagés avec toute la classe
+   ============================================================ */
+async function loadIndex() {
+  try {
+    const res = await window.storage.get('documents:index', true);
+    return res ? JSON.parse(res.value) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function saveIndex(list) {
+  await window.storage.set('documents:index', JSON.stringify(list), true);
+}
+
+async function saveFileContent(id, base64) {
+  await window.storage.set('documents:file:' + id, base64, true);
+}
+
+async function loadFileContent(id) {
+  const res = await window.storage.get('documents:file:' + id, true);
+  return res ? res.value : null;
+}
+
+async function deleteFileContent(id) {
+  try { await window.storage.delete('documents:file:' + id, true); } catch (e) {}
+}
+
+async function init() {
+  render();
+  try {
+    state.documents = await loadIndex();
+  } catch (e) {
+    state.error = "Impossible de charger les documents pour le moment.";
+  }
+  state.loading = false;
+  render();
+}
+
+/* ============================================================
+   RENDU
+   ============================================================ */
+function getCategories() {
+  const fromDocs = state.documents.map(d => d.category).filter(Boolean);
+  const set = new Set([...CONFIG.defaultCategories, ...fromDocs]);
+  return ["Tous", ...Array.from(set)];
+}
+
+function getFilteredDocs() {
+  return state.documents
+    .filter(d => state.activeCategory === "Tous" || d.category === state.activeCategory)
+    .filter(d => d.name.toLowerCase().includes(state.search.toLowerCase()))
+    .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+}
+
+function render() {
+  root.innerHTML = `
+    ${renderHeader()}
+    <main class="flex-1 w-full max-w-5xl mx-auto px-5 sm:px-8 py-10">
+      ${state.error ? renderErrorBanner() : ""}
+      ${renderIntro()}
+      ${renderControls()}
+      ${state.isAdmin ? renderUploadPanel() : ""}
+      ${renderDocList()}
+    </main>
+    ${renderFooter()}
+    ${renderLoginModal()}
+  `;
+  attachEvents();
+}
+
+function renderHeader() {
+  return `
+  <header class="border-b border-line">
+    <div class="max-w-5xl mx-auto px-5 sm:px-8 py-6 flex items-center justify-between gap-4">
+      <div class="flex items-baseline gap-3">
+        <h1 class="font-display text-2xl sm:text-3xl font-medium tracking-tight text-ink">${esc(CONFIG.classTitle)}</h1>
+        <span class="hidden sm:inline text-sm text-inksoft font-mono">${esc(CONFIG.className)}</span>
+      </div>
+      <div class="flex items-center gap-3">
+        ${state.isAdmin
+          ? `<span class="text-xs font-mono px-2.5 py-1 rounded-full bg-gold-light text-gold border border-gold/30">admin</span>
+             <button data-action="logout" class="text-sm text-inksoft hover:text-ink transition-colors underline decoration-line underline-offset-4">Se déconnecter</button>`
+          : `<button data-action="open-login" class="text-sm text-inksoft hover:text-ink transition-colors underline decoration-line underline-offset-4">Espace admin</button>`
+        }
+      </div>
+    </div>
+  </header>`;
+}
+
+function renderIntro() {
+  return `
+  <div class="mb-8 rise">
+    <p class="text-inksoft max-w-xl leading-relaxed">
+      ${state.isAdmin
+        ? "Ajoutez, classez et retirez les documents visibles par la classe."
+        : "Retrouvez ici les documents partagés pour la classe. Le téléchargement est libre, aucun compte n'est nécessaire."
+      }
+    </p>
+  </div>`;
+}
+
+/* ============================================================
+   ÉVÉNEMENTS
+   ============================================================ */
+function attachEvents() {
+  root.querySelector('#search-input')?.addEventListener('input', (e) => {
+    state.search = e.target.value;
+    render();
+    root.querySelector('#search-input')?.focus();
+    const val = root.querySelector('#search-input');
+    if (val) val.setSelectionRange(val.value.length, val.value.length);
+  });
+
+  root.querySelectorAll('[data-action="filter"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.activeCategory = btn.dataset.cat;
+      render();
+    });
+  });
+
+  root.querySelectorAll('[data-action="download"]').forEach(btn => {
+    btn.addEventListener('click', () => handleDownload(btn.dataset.id));
+  });
+
+  root.querySelectorAll('[data-action="delete"]').forEach(btn => {
+    btn.addEventListener('click', () => handleDelete(btn.dataset.id));
+  });
+
+  root.querySelector('[data-action="open-login"]')?.addEventListener('click', () => {
+    state.showLogin = true;
+    state.loginError = null;
+    render();
+  });
+
+  root.querySelector('[data-action="close-login"]')?.addEventListener('click', () => {
+    state.showLogin = false;
+    render();
+  });
+
+  root.querySelector('[data-action="logout"]')?.addEventListener('click', () => {
+    state.isAdmin = false;
+    render();
+  });
+
+  root.querySelector('#login-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const pw = root.querySelector('#login-password').value;
+    if (pw === CONFIG.adminPassword) {
+      state.isAdmin = true;
+      state.showLogin = false;
+      state.loginError = null;
+    } else {
+      state.loginError = "Mot de passe incorrect.";
+    }
+    render();
+  });
+
+  const catSelect = root.querySelector('#upload-category');
+  catSelect?.addEventListener('change', () => {
+    const newInput = root.querySelector('#upload-category-new');
+    newInput.classList.toggle('hidden', catSelect.value !== '__new__');
+    if (catSelect.value === '__new__') newInput.focus();
+  });
+
+  root.querySelector('#upload-form')?.addEventListener('submit', handleUpload);
+}
+
+async function handleDownload(id) {
+  const doc = state.documents.find(d => d.id === id);
+  if (!doc) return;
+  try {
+    const base64 = await loadFileContent(id);
+    if (!base64) throw new Error('missing');
+    const link = document.createElement('a');
+    link.href = 'data:' + (doc.mimeType || 'application/octet-stream') + ';base64,' + base64;
+    link.download = doc.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch (e) {
+    state.error = "Ce document n'a pas pu être téléchargé.";
+    render();
+  }
+}
+
+async function handleDelete(id) {
+  if (!confirm('Supprimer définitivement ce document ?')) return;
+  state.documents = state.documents.filter(d => d.id !== id);
+  render();
+  try {
+    await saveIndex(state.documents);
+    await deleteFileContent(id);
+  } catch (e) {
+    state.error = "La suppression n'a pas pu être enregistrée.";
+    render();
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = () => reject(new Error('read failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleUpload(e) {
+  e.preventDefault();
+  const fileInput = root.querySelector('#upload-file');
+  const catSelect = root.querySelector('#upload-category');
+  const catNew = root.querySelector('#upload-category-new');
+  const statusEl = root.querySelector('#upload-status');
+  const files = Array.from(fileInput.files || []);
+  const category = catSelect.value === '__new__' ? (catNew.value.trim() || 'Autres') : catSelect.value;
+
+  if (files.length === 0) {
+    statusEl.innerHTML = `<p class="text-rust">Choisissez au moins un fichier.</p>`;
+    return;
+  }
+
+  state.uploading = true;
+  render();
+  const freshStatus = root.querySelector('#upload-status');
+
+  for (const file of files) {
+    const line = document.createElement('p');
+    line.textContent = `${file.name} — en cours…`;
+    freshStatus?.appendChild(line);
+
+    if (file.size > CONFIG.maxFileMB * 1024 * 1024) {
+      line.textContent = `${file.name} — trop volumineux (max ${CONFIG.maxFileMB} Mo)`;
+      line.className = 'text-rust';
+      continue;
+    }
+    try {
+      const base64 = await fileToBase64(file);
+      const id = genId();
+      const doc = {
+        id,
+        name: file.name,
+        category,
+        size: file.size,
+        mimeType: file.type || 'application/octet-stream',
+        uploadedAt: new Date().toISOString(),
+      };
+      await saveFileContent(id, base64);
+      state.documents.push(doc);
+      await saveIndex(state.documents);
+      line.textContent = `${file.name} — ajouté ✓`;
+      line.className = 'text-teal';
+    } catch (err) {
+      line.textContent = `${file.name} — échec de l'envoi`;
+      line.className = 'text-rust';
+    }
+  }
+
+  state.uploading = false;
+  render();
+}
+
+function renderErrorBanner() {
+  return `
+  <div class="mb-6 px-4 py-3 rounded-md bg-rust-light border border-rust/20 text-rust text-sm rise">
+    ${esc(state.error)}
+  </div>`;
+}
+
+function renderControls() {
+  const cats = getCategories();
+  return `
+  <div class="mb-8 space-y-4">
+    <div class="relative max-w-md">
+      <input
+        id="search-input"
+        type="text"
+        value="${esc(state.search)}"
+        placeholder="Rechercher un document..."
+        class="w-full bg-card border border-line rounded-md px-4 py-2.5 text-sm placeholder:text-inksoft/60 focus-ring"
+      />
+    </div>
+    <div class="flex flex-wrap gap-2 scrollbar-thin">
+      ${cats.map(c => `
+        <button data-action="filter" data-cat="${esc(c)}"
+          class="px-3.5 py-1.5 rounded-full text-sm border transition-colors ${
+            state.activeCategory === c
+              ? 'bg-ink text-paper border-ink'
+              : 'bg-card text-inksoft border-line hover:border-ink/40'
+          }">${esc(c)}</button>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+function renderUploadPanel() {
+  return `
+  <div class="mb-10 border border-line rounded-lg bg-card p-5 sm:p-6 rise">
+    <h2 class="font-display text-lg font-medium mb-1">Ajouter des documents</h2>
+    <p class="text-xs text-inksoft mb-4">Taille max. ${CONFIG.maxFileMB} Mo par fichier. Formats acceptés : tous.</p>
+    <form id="upload-form" class="space-y-4">
+      <div>
+        <label class="block text-xs font-mono text-inksoft mb-1.5" for="upload-category">Catégorie</label>
+        <div class="flex gap-2">
+          <select id="upload-category" class="flex-1 bg-paper border border-line rounded-md px-3 py-2 text-sm focus-ring">
+            ${CONFIG.defaultCategories.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}
+            <option value="__new__">+ Nouvelle catégorie…</option>
+          </select>
+          <input id="upload-category-new" type="text" placeholder="Nom de la catégorie" class="hidden flex-1 bg-paper border border-line rounded-md px-3 py-2 text-sm focus-ring" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-mono text-inksoft mb-1.5" for="upload-file">Fichier(s)</label>
+        <input id="upload-file" type="file" multiple class="w-full text-sm file:mr-3 file:py-2 file:px-3.5 file:rounded-md file:border file:border-line file:bg-paper file:text-ink file:text-sm hover:file:border-ink/40 file:cursor-pointer cursor-pointer" />
+      </div>
+      <div id="upload-status" class="text-xs font-mono space-y-1"></div>
+      <button type="submit" ${state.uploading ? 'disabled' : ''}
+        class="px-4 py-2 rounded-md bg-teal text-paper text-sm font-medium hover:bg-teal-dark transition-colors disabled:opacity-50">
+        ${state.uploading ? 'Envoi en cours…' : 'Publier'}
+      </button>
+    </form>
+  </div>`;
+}
+
+function renderDocList() {
+  if (state.loading) {
+    return `<div class="py-16 text-center text-inksoft text-sm font-mono">Chargement…</div>`;
+  }
+  const docs = getFilteredDocs();
+  if (docs.length === 0) {
+    return `
+    <div class="py-16 text-center border border-dashed border-line rounded-lg">
+      <p class="font-display text-lg text-ink mb-1">Aucun document ici</p>
+      <p class="text-sm text-inksoft">${state.isAdmin ? "Ajoutez votre premier document ci-dessus." : "Revenez un peu plus tard."}</p>
+    </div>`;
+  }
+  return `
+  <ul class="divide-y divide-line border-t border-b border-line">
+    ${docs.map(d => renderDocRow(d)).join('')}
+  </ul>`;
+}
+
+function renderDocRow(d) {
+  const ext = extOf(d.name);
+  const color = extColor(ext);
+  return `
+  <li class="py-4 flex items-center gap-4 group rise" data-id="${d.id}">
+    <div class="shrink-0 w-11 h-11 rounded-md border border-${color}/30 bg-${color === 'inksoft' ? 'paper' : color + '-light'} flex items-center justify-center">
+      <span class="text-[10px] font-mono font-semibold text-${color}">${esc(ext.slice(0,4))}</span>
+    </div>
+    <div class="min-w-0 flex-1">
+      <p class="text-sm font-medium text-ink truncate">${esc(d.name)}</p>
+      <p class="text-xs text-inksoft mt-0.5 tick">
+        ${esc(d.category)} · ${humanSize(d.size)} · ${formatDate(d.uploadedAt)}
+      </p>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <button data-action="download" data-id="${d.id}"
+        class="px-3.5 py-1.5 rounded-md border border-line text-sm text-ink hover:border-teal hover:text-teal transition-colors">
+        Télécharger
+      </button>
+      ${state.isAdmin ? `
+      <button data-action="delete" data-id="${d.id}"
+        class="px-2.5 py-1.5 rounded-md text-sm text-inksoft hover:text-rust transition-colors" title="Supprimer">
+        Supprimer
+      </button>` : ""}
+    </div>
+  </li>`;
+}
+
+function renderLoginModal() {
+  if (!state.showLogin) return "";
+  return `
+  <div id="login-overlay" class="fixed inset-0 bg-ink/40 backdrop-blur-[2px] flex items-center justify-center p-4 z-50 rise">
+    <div class="bg-card border border-line rounded-lg p-6 w-full max-w-sm">
+      <h2 class="font-display text-xl font-medium mb-1">Espace admin</h2>
+      <p class="text-sm text-inksoft mb-4">Entrez le mot de passe pour gérer les documents.</p>
+      <form id="login-form" class="space-y-3">
+        <input id="login-password" type="password" autofocus placeholder="Mot de passe"
+          class="w-full bg-paper border border-line rounded-md px-3 py-2 text-sm focus-ring" />
+        ${state.loginError ? `<p class="text-xs text-rust">${esc(state.loginError)}</p>` : ""}
+        <div class="flex gap-2 pt-1">
+          <button type="submit" class="flex-1 px-4 py-2 rounded-md bg-ink text-paper text-sm font-medium hover:bg-ink/90 transition-colors">Entrer</button>
+          <button type="button" data-action="close-login" class="px-4 py-2 rounded-md border border-line text-sm text-inksoft hover:text-ink transition-colors">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>`;
+}
+
+function renderFooter() {
+  return `
+  <footer class="border-t border-line mt-auto">
+    <div class="max-w-5xl mx-auto px-5 sm:px-8 py-6 text-xs text-inksoft/70 font-mono">
+      ${state.documents.length} document${state.documents.length > 1 ? 's' : ''} au total
+    </div>
+  </footer>`;
+}
+
+init();
+</script>
+
+</body>
+</html>
