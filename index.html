@@ -18,19 +18,9 @@
           inksoft: '#586274',
           line: '#DAD3C0',
           card: '#FFFEFB',
-          teal: {
-            DEFAULT: '#2F6F5E',
-            dark: '#234F43',
-            light: '#E4EEE9',
-          },
-          gold: {
-            DEFAULT: '#9C6B2B',
-            light: '#F3E7D3',
-          },
-          rust: {
-            DEFAULT: '#A8432E',
-            light: '#F5E1DB',
-          },
+          teal: { DEFAULT: '#2F6F5E', dark: '#234F43', light: '#E4EEE9' },
+          gold: { DEFAULT: '#9C6B2B', light: '#F3E7D3' },
+          rust: { DEFAULT: '#A8432E', light: '#F5E1DB' },
         },
         fontFamily: {
           display: ['"Fraunces"', 'serif'],
@@ -47,10 +37,10 @@
   .tick { font-variant-numeric: tabular-nums; }
   @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
   .rise { animation: rise .35s ease both; }
+  .spin { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .focus-ring:focus-visible { outline: 2px solid #2F6F5E; outline-offset: 2px; }
   input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid #2F6F5E; outline-offset: 1px; }
-  .scrollbar-thin::-webkit-scrollbar { height: 6px; width: 6px; }
-  .scrollbar-thin::-webkit-scrollbar-thumb { background: #DAD3C0; border-radius: 4px; }
 </style>
 </head>
 <body class="font-sans text-ink min-h-screen">
@@ -59,29 +49,44 @@
 
 <script>
 /* ============================================================
-   CONFIGURATION — modifiez ces valeurs pour votre classe
+   CONFIGURATION — À ADAPTER À VOTRE DÉPÔT GITHUB
    ============================================================ */
 const CONFIG = {
   classTitle: "Portail Documents",
-  className: "Votre classe",
-  adminPassword: "changeme2026", // ⚠️ à changer avant de publier le site
-  maxFileMB: 3.5, // taille max par fichier (limite technique du stockage)
-  defaultCategories: ["Cours", "TD / TP", "Examens", "Annonces", "Autres"],
+  className: "1MCVA",
+  githubOwner: "metal54400",   // ex: "jdupont"
+  githubRepo: "1MCVA",      // nom exact du dépôt
+  githubBranch: "main",
+  filesFolder: "files",                 // dossier où sont rangés les fichiers
+  manifestPath: "manifest.json",        // fichier index listant les documents
+  maxFileMB: 20,
+  defaultCategories: ["Cours", "Diapositives", "TD / TP", "Examens", "Annonces", "Autres"],
 };
-/* ============================================================ */
 
+/* ============================================================
+   ÉTAT GLOBAL
+   ============================================================ */
 let state = {
   isAdmin: false,
+  githubToken: "",      // En mémoire uniquement, jamais persisté
   documents: [],
+  manifestSha: null,    // SHA actuel pour éviter les conflits lors de l'update
   search: "",
   activeCategory: "Tous",
   loading: true,
   uploading: false,
   error: null,
+  showLogin: false,
+  loginError: null,
 };
 
 const root = document.getElementById('app');
+const RAW_BASE = `https://raw.githubusercontent.com/${CONFIG.githubOwner}/${CONFIG.githubRepo}/${CONFIG.githubBranch}`;
+const API_BASE = `https://api.github.com/repos/${CONFIG.githubOwner}/${CONFIG.githubRepo}/contents`;
 
+/* ============================================================
+   UTILITAIRES
+   ============================================================ */
 function esc(str) {
   const d = document.createElement('div');
   d.innerText = str ?? "";
@@ -101,423 +106,361 @@ function formatDate(iso) {
 
 function extOf(name) {
   const parts = name.split('.');
-  return parts.length > 1 ? parts.pop().toUpperCase() : "FICHIER";
+  return parts.length > 1 ? parts.pop().toUpperCase() : "FILE";
 }
 
 function extColor(ext) {
   const map = {
-    PDF: "rust", DOC: "teal", DOCX: "teal", XLS: "gold", XLSX: "gold",
-    PPT: "rust", PPTX: "rust", ZIP: "inksoft", JPG: "gold", PNG: "gold", JPEG: "gold",
+    PDF: "rust", 
+    DOC: "teal", DOCX: "teal", ODT: "teal", TXT: "teal", MD: "teal",
+    XLS: "gold", XLSX: "gold", ODS: "gold", CSV: "gold",
+    PPT: "rust", PPTX: "rust", ODP: "rust", KEY: "rust",
+    ZIP: "inksoft", RAR: "inksoft", "7Z": "inksoft", TAR: "inksoft",
+    JPG: "gold", JPEG: "gold", PNG: "gold", GIF: "gold", SVG: "gold",
   };
   return map[ext] || "inksoft";
 }
 
 function genId() {
-  return 'doc_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function safeName(name) {
+  return name.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+function bufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 }
 
 /* ============================================================
-   STOCKAGE — les documents sont partagés avec toute la classe
+   API GITHUB
    ============================================================ */
-async function loadIndex() {
+async function apiRequest(endpoint, options = {}) {
+  const headers = {
+    'Accept': 'application/vnd.github.v3+json',
+    ...options.headers
+  };
+  
+  if (state.githubToken) {
+    headers['Authorization'] = `token ${state.githubToken}`;
+  }
+  
+  const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || `HTTP ${response.status}`);
+  }
+  
+  // Pour DELETE, pas de contenu JSON
+  if (response.status === 204) return null;
+  return response.json();
+}
+
+async function loadManifest() {
   try {
-    const res = await window.storage.get('documents:index', true);
-    return res ? JSON.parse(res.value) : [];
-  } catch (e) {
-    return [];
+    const data = await apiRequest(`/${CONFIG.manifestPath}`);
+    state.manifestSha = data.sha;
+    const content = atob(data.content);
+    return JSON.parse(content);
+  } catch (error) {
+    if (error.message.includes('404')) return [];
+    throw error;
   }
 }
 
-async function saveIndex(list) {
-  await window.storage.set('documents:index', JSON.stringify(list), true);
+async function saveManifest(documents) {
+  const content = btoa(JSON.stringify(documents, null, 2));
+  await apiRequest(`/${CONFIG.manifestPath}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      message: 'Update manifest',
+      content: content,
+      sha: state.manifestSha
+    })
+  });
+  // Recharger pour obtenir le nouveau SHA
+  const data = await apiRequest(`/${CONFIG.manifestPath}`);
+  state.manifestSha = data.sha;
 }
 
-async function saveFileContent(id, base64) {
-  await window.storage.set('documents:file:' + id, base64, true);
+async function uploadFileToGitHub(file, path) {
+  const buffer = await file.arrayBuffer();
+  const content = bufferToBase64(buffer);
+  
+  return apiRequest(`/${path}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      message: `Upload: ${file.name}`,
+      content: content
+    })
+  });
 }
 
-async function loadFileContent(id) {
-  const res = await window.storage.get('documents:file:' + id, true);
-  return res ? res.value : null;
-}
-
-async function deleteFileContent(id) {
-  try { await window.storage.delete('documents:file:' + id, true); } catch (e) {}
-}
-
-async function init() {
-  render();
-  try {
-    state.documents = await loadIndex();
-  } catch (e) {
-    state.error = "Impossible de charger les documents pour le moment.";
-  }
-  state.loading = false;
-  render();
+async function deleteFileFromGitHub(path, sha) {
+  await apiRequest(`/${path}`, {
+    method: 'DELETE',
+    body: JSON.stringify({
+      message: `Delete: ${path}`,
+      sha: sha
+    })
+  });
 }
 
 /* ============================================================
-   RENDU
+   LOGIQUE MÉTIER
    ============================================================ */
-function getCategories() {
-  const fromDocs = state.documents.map(d => d.category).filter(Boolean);
-  const set = new Set([...CONFIG.defaultCategories, ...fromDocs]);
-  return ["Tous", ...Array.from(set)];
+async function loadDocuments() {
+  state.loading = true;
+  state.error = null;
+  render();
+  
+  try {
+    const documents = await loadManifest();
+    state.documents = documents.sort((a, b) => new Date(b.date) - new Date(a.date));
+  } catch (error) {
+    state.error = `Erreur de chargement: ${error.message}`;
+    state.documents = [];
+  } finally {
+    state.loading = false;
+    render();
+  }
 }
 
-function getFilteredDocs() {
-  return state.documents
-    .filter(d => state.activeCategory === "Tous" || d.category === state.activeCategory)
-    .filter(d => d.name.toLowerCase().includes(state.search.toLowerCase()))
-    .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
-}
-
-function render() {
-  root.innerHTML = `
-    ${renderHeader()}
-    <main class="flex-1 w-full max-w-5xl mx-auto px-5 sm:px-8 py-10">
-      ${state.error ? renderErrorBanner() : ""}
-      ${renderIntro()}
-      ${renderControls()}
-      ${state.isAdmin ? renderUploadPanel() : ""}
-      ${renderDocList()}
-    </main>
-    ${renderFooter()}
-    ${renderLoginModal()}
-  `;
-  attachEvents();
-}
-
-function renderHeader() {
-  return `
-  <header class="border-b border-line">
-    <div class="max-w-5xl mx-auto px-5 sm:px-8 py-6 flex items-center justify-between gap-4">
-      <div class="flex items-baseline gap-3">
-        <h1 class="font-display text-2xl sm:text-3xl font-medium tracking-tight text-ink">${esc(CONFIG.classTitle)}</h1>
-        <span class="hidden sm:inline text-sm text-inksoft font-mono">${esc(CONFIG.className)}</span>
-      </div>
-      <div class="flex items-center gap-3">
-        ${state.isAdmin
-          ? `<span class="text-xs font-mono px-2.5 py-1 rounded-full bg-gold-light text-gold border border-gold/30">admin</span>
-             <button data-action="logout" class="text-sm text-inksoft hover:text-ink transition-colors underline decoration-line underline-offset-4">Se déconnecter</button>`
-          : `<button data-action="open-login" class="text-sm text-inksoft hover:text-ink transition-colors underline decoration-line underline-offset-4">Espace admin</button>`
-        }
-      </div>
-    </div>
-  </header>`;
-}
-
-function renderIntro() {
-  return `
-  <div class="mb-8 rise">
-    <p class="text-inksoft max-w-xl leading-relaxed">
-      ${state.isAdmin
-        ? "Ajoutez, classez et retirez les documents visibles par la classe."
-        : "Retrouvez ici les documents partagés pour la classe. Le téléchargement est libre, aucun compte n'est nécessaire."
+async function handleFileUpload(event) {
+  const files = Array.from(event.target.files);
+  if (files.length === 0) return;
+  
+  state.uploading = true;
+  state.error = null;
+  render();
+  
+  try {
+    for (const file of files) {
+      if (file.size > CONFIG.maxFileMB * 1024 * 1024) {
+        throw new Error(`"${file.name}" dépasse ${CONFIG.maxFileMB} Mo`);
       }
-    </p>
-  </div>`;
-}
-
-/* ============================================================
-   ÉVÉNEMENTS
-   ============================================================ */
-function attachEvents() {
-  root.querySelector('#search-input')?.addEventListener('input', (e) => {
-    state.search = e.target.value;
-    render();
-    root.querySelector('#search-input')?.focus();
-    const val = root.querySelector('#search-input');
-    if (val) val.setSelectionRange(val.value.length, val.value.length);
-  });
-
-  root.querySelectorAll('[data-action="filter"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.activeCategory = btn.dataset.cat;
-      render();
-    });
-  });
-
-  root.querySelectorAll('[data-action="download"]').forEach(btn => {
-    btn.addEventListener('click', () => handleDownload(btn.dataset.id));
-  });
-
-  root.querySelectorAll('[data-action="delete"]').forEach(btn => {
-    btn.addEventListener('click', () => handleDelete(btn.dataset.id));
-  });
-
-  root.querySelector('[data-action="open-login"]')?.addEventListener('click', () => {
-    state.showLogin = true;
-    state.loginError = null;
-    render();
-  });
-
-  root.querySelector('[data-action="close-login"]')?.addEventListener('click', () => {
-    state.showLogin = false;
-    render();
-  });
-
-  root.querySelector('[data-action="logout"]')?.addEventListener('click', () => {
-    state.isAdmin = false;
-    render();
-  });
-
-  root.querySelector('#login-form')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const pw = root.querySelector('#login-password').value;
-    if (pw === CONFIG.adminPassword) {
-      state.isAdmin = true;
-      state.showLogin = false;
-      state.loginError = null;
-    } else {
-      state.loginError = "Mot de passe incorrect.";
+      
+      const safeFileName = safeName(file.name);
+      const filePath = `${CONFIG.filesFolder}/${Date.now()}_${safeFileName}`;
+      
+      await uploadFileToGitHub(file, filePath);
+      
+      const newDoc = {
+        id: genId(),
+        name: file.name,
+        path: filePath,
+        size: file.size,
+        type: file.type,
+        category: state.activeCategory === 'Tous' ? 'Autres' : state.activeCategory,
+        date: new Date().toISOString(),
+        uploadedBy: 'Admin'
+      };
+      
+      state.documents.unshift(newDoc);
     }
-    render();
-  });
-
-  const catSelect = root.querySelector('#upload-category');
-  catSelect?.addEventListener('change', () => {
-    const newInput = root.querySelector('#upload-category-new');
-    newInput.classList.toggle('hidden', catSelect.value !== '__new__');
-    if (catSelect.value === '__new__') newInput.focus();
-  });
-
-  root.querySelector('#upload-form')?.addEventListener('submit', handleUpload);
-}
-
-async function handleDownload(id) {
-  const doc = state.documents.find(d => d.id === id);
-  if (!doc) return;
-  try {
-    const base64 = await loadFileContent(id);
-    if (!base64) throw new Error('missing');
-    const link = document.createElement('a');
-    link.href = 'data:' + (doc.mimeType || 'application/octet-stream') + ';base64,' + base64;
-    link.download = doc.name;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  } catch (e) {
-    state.error = "Ce document n'a pas pu être téléchargé.";
+    
+    await saveManifest(state.documents);
+    event.target.value = '';
+  } catch (error) {
+    state.error = `Erreur d'upload: ${error.message}`;
+  } finally {
+    state.uploading = false;
     render();
   }
 }
 
-async function handleDelete(id) {
+async function deleteDocument(docId) {
   if (!confirm('Supprimer définitivement ce document ?')) return;
-  state.documents = state.documents.filter(d => d.id !== id);
-  render();
+  
+  const docIndex = state.documents.findIndex(d => d.id === docId);
+  if (docIndex === -1) return;
+  
+  const doc = state.documents[docIndex];
+  
   try {
-    await saveIndex(state.documents);
-    await deleteFileContent(id);
-  } catch (e) {
-    state.error = "La suppression n'a pas pu être enregistrée.";
+    const fileData = await apiRequest(`/${doc.path}`);
+    await deleteFileFromGitHub(doc.path, fileData.sha);
+    
+    state.documents.splice(docIndex, 1);
+    await saveManifest(state.documents);
+  } catch (error) {
+    state.error = `Erreur de suppression: ${error.message}`;
     render();
   }
 }
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = () => reject(new Error('read failed'));
-    reader.readAsDataURL(file);
-  });
-}
-
-async function handleUpload(e) {
-  e.preventDefault();
-  const fileInput = root.querySelector('#upload-file');
-  const catSelect = root.querySelector('#upload-category');
-  const catNew = root.querySelector('#upload-category-new');
-  const statusEl = root.querySelector('#upload-status');
-  const files = Array.from(fileInput.files || []);
-  const category = catSelect.value === '__new__' ? (catNew.value.trim() || 'Autres') : catSelect.value;
-
-  if (files.length === 0) {
-    statusEl.innerHTML = `<p class="text-rust">Choisissez au moins un fichier.</p>`;
+function handleLogin(token) {
+  if (!token) {
+    state.loginError = 'Token requis';
+    render();
     return;
   }
+  state.githubToken = token;
+  state.isAdmin = true;
+  state.showLogin = false;
+  state.loginError = null;
+  loadDocuments();
+}
 
-  state.uploading = true;
-  render();
-  const freshStatus = root.querySelector('#upload-status');
+function handleLogout() {
+  state.githubToken = '';
+  state.isAdmin = false;
+  state.showLogin = false;
+  loadDocuments();
+}
 
-  for (const file of files) {
-    const line = document.createElement('p');
-    line.textContent = `${file.name} — en cours…`;
-    freshStatus?.appendChild(line);
-
-    if (file.size > CONFIG.maxFileMB * 1024 * 1024) {
-      line.textContent = `${file.name} — trop volumineux (max ${CONFIG.maxFileMB} Mo)`;
-      line.className = 'text-rust';
-      continue;
-    }
-    try {
-      const base64 = await fileToBase64(file);
-      const id = genId();
-      const doc = {
-        id,
-        name: file.name,
-        category,
-        size: file.size,
-        mimeType: file.type || 'application/octet-stream',
-        uploadedAt: new Date().toISOString(),
-      };
-      await saveFileContent(id, base64);
-      state.documents.push(doc);
-      await saveIndex(state.documents);
-      line.textContent = `${file.name} — ajouté ✓`;
-      line.className = 'text-teal';
-    } catch (err) {
-      line.textContent = `${file.name} — échec de l'envoi`;
-      line.className = 'text-rust';
-    }
+function getFilteredDocuments() {
+  let filtered = state.documents;
+  if (state.activeCategory !== 'Tous') {
+    filtered = filtered.filter(doc => doc.category === state.activeCategory);
   }
-
-  state.uploading = false;
-  render();
+  if (state.search) {
+    const s = state.search.toLowerCase();
+    filtered = filtered.filter(doc => 
+      doc.name.toLowerCase().includes(s) || 
+      doc.category.toLowerCase().includes(s)
+    );
+  }
+  return filtered;
 }
 
-function renderErrorBanner() {
-  return `
-  <div class="mb-6 px-4 py-3 rounded-md bg-rust-light border border-rust/20 text-rust text-sm rise">
-    ${esc(state.error)}
-  </div>`;
-}
-
-function renderControls() {
-  const cats = getCategories();
-  return `
-  <div class="mb-8 space-y-4">
-    <div class="relative max-w-md">
-      <input
-        id="search-input"
-        type="text"
-        value="${esc(state.search)}"
-        placeholder="Rechercher un document..."
-        class="w-full bg-card border border-line rounded-md px-4 py-2.5 text-sm placeholder:text-inksoft/60 focus-ring"
-      />
-    </div>
-    <div class="flex flex-wrap gap-2 scrollbar-thin">
-      ${cats.map(c => `
-        <button data-action="filter" data-cat="${esc(c)}"
-          class="px-3.5 py-1.5 rounded-full text-sm border transition-colors ${
-            state.activeCategory === c
-              ? 'bg-ink text-paper border-ink'
-              : 'bg-card text-inksoft border-line hover:border-ink/40'
-          }">${esc(c)}</button>
-      `).join('')}
-    </div>
-  </div>`;
-}
-
-function renderUploadPanel() {
-  return `
-  <div class="mb-10 border border-line rounded-lg bg-card p-5 sm:p-6 rise">
-    <h2 class="font-display text-lg font-medium mb-1">Ajouter des documents</h2>
-    <p class="text-xs text-inksoft mb-4">Taille max. ${CONFIG.maxFileMB} Mo par fichier. Formats acceptés : tous.</p>
-    <form id="upload-form" class="space-y-4">
-      <div>
-        <label class="block text-xs font-mono text-inksoft mb-1.5" for="upload-category">Catégorie</label>
-        <div class="flex gap-2">
-          <select id="upload-category" class="flex-1 bg-paper border border-line rounded-md px-3 py-2 text-sm focus-ring">
-            ${CONFIG.defaultCategories.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}
-            <option value="__new__">+ Nouvelle catégorie…</option>
-          </select>
-          <input id="upload-category-new" type="text" placeholder="Nom de la catégorie" class="hidden flex-1 bg-paper border border-line rounded-md px-3 py-2 text-sm focus-ring" />
+/* ============================================================
+   RENDU UI
+   ============================================================ */
+function render() {
+  const filteredDocs = getFilteredDocuments();
+  
+  root.innerHTML = `
+    <header class="bg-card border-b border-line sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="font-display text-2xl sm:text-3xl font-bold text-ink">${esc(CONFIG.classTitle)}</h1>
+            <p class="text-inksoft text-sm mt-0.5">${esc(CONFIG.className)}</p>
+          </div>
+          <button onclick="${state.isAdmin ? 'handleLogout()' : 'state.showLogin=true;render()'}" 
+            class="px-4 py-2 rounded-lg transition focus-ring text-sm font-medium ${state.isAdmin ? 'bg-rust text-white hover:bg-rust/90' : 'bg-teal text-white hover:bg-teal-dark'}">
+            ${state.isAdmin ? 'Déconnexion' : 'Admin'}
+          </button>
         </div>
       </div>
-      <div>
-        <label class="block text-xs font-mono text-inksoft mb-1.5" for="upload-file">Fichier(s)</label>
-        <input id="upload-file" type="file" multiple class="w-full text-sm file:mr-3 file:py-2 file:px-3.5 file:rounded-md file:border file:border-line file:bg-paper file:text-ink file:text-sm hover:file:border-ink/40 file:cursor-pointer cursor-pointer" />
-      </div>
-      <div id="upload-status" class="text-xs font-mono space-y-1"></div>
-      <button type="submit" ${state.uploading ? 'disabled' : ''}
-        class="px-4 py-2 rounded-md bg-teal text-paper text-sm font-medium hover:bg-teal-dark transition-colors disabled:opacity-50">
-        ${state.uploading ? 'Envoi en cours…' : 'Publier'}
-      </button>
-    </form>
-  </div>`;
-}
+    </header>
 
-function renderDocList() {
-  if (state.loading) {
-    return `<div class="py-16 text-center text-inksoft text-sm font-mono">Chargement…</div>`;
-  }
-  const docs = getFilteredDocs();
-  if (docs.length === 0) {
-    return `
-    <div class="py-16 text-center border border-dashed border-line rounded-lg">
-      <p class="font-display text-lg text-ink mb-1">Aucun document ici</p>
-      <p class="text-sm text-inksoft">${state.isAdmin ? "Ajoutez votre premier document ci-dessus." : "Revenez un peu plus tard."}</p>
-    </div>`;
-  }
-  return `
-  <ul class="divide-y divide-line border-t border-b border-line">
-    ${docs.map(d => renderDocRow(d)).join('')}
-  </ul>`;
-}
+    <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+      ${state.error ? `<div class="mb-6 p-4 bg-rust-light border border-rust/30 text-rust rounded-lg rise text-sm">${esc(state.error)}</div>` : ''}
 
-function renderDocRow(d) {
-  const ext = extOf(d.name);
-  const color = extColor(ext);
-  return `
-  <li class="py-4 flex items-center gap-4 group rise" data-id="${d.id}">
-    <div class="shrink-0 w-11 h-11 rounded-md border border-${color}/30 bg-${color === 'inksoft' ? 'paper' : color + '-light'} flex items-center justify-center">
-      <span class="text-[10px] font-mono font-semibold text-${color}">${esc(ext.slice(0,4))}</span>
-    </div>
-    <div class="min-w-0 flex-1">
-      <p class="text-sm font-medium text-ink truncate">${esc(d.name)}</p>
-      <p class="text-xs text-inksoft mt-0.5 tick">
-        ${esc(d.category)} · ${humanSize(d.size)} · ${formatDate(d.uploadedAt)}
-      </p>
-    </div>
-    <div class="flex items-center gap-2 shrink-0">
-      <button data-action="download" data-id="${d.id}"
-        class="px-3.5 py-1.5 rounded-md border border-line text-sm text-ink hover:border-teal hover:text-teal transition-colors">
-        Télécharger
-      </button>
-      ${state.isAdmin ? `
-      <button data-action="delete" data-id="${d.id}"
-        class="px-2.5 py-1.5 rounded-md text-sm text-inksoft hover:text-rust transition-colors" title="Supprimer">
-        Supprimer
-      </button>` : ""}
-    </div>
-  </li>`;
-}
-
-function renderLoginModal() {
-  if (!state.showLogin) return "";
-  return `
-  <div id="login-overlay" class="fixed inset-0 bg-ink/40 backdrop-blur-[2px] flex items-center justify-center p-4 z-50 rise">
-    <div class="bg-card border border-line rounded-lg p-6 w-full max-w-sm">
-      <h2 class="font-display text-xl font-medium mb-1">Espace admin</h2>
-      <p class="text-sm text-inksoft mb-4">Entrez le mot de passe pour gérer les documents.</p>
-      <form id="login-form" class="space-y-3">
-        <input id="login-password" type="password" autofocus placeholder="Mot de passe"
-          class="w-full bg-paper border border-line rounded-md px-3 py-2 text-sm focus-ring" />
-        ${state.loginError ? `<p class="text-xs text-rust">${esc(state.loginError)}</p>` : ""}
-        <div class="flex gap-2 pt-1">
-          <button type="submit" class="flex-1 px-4 py-2 rounded-md bg-ink text-paper text-sm font-medium hover:bg-ink/90 transition-colors">Entrer</button>
-          <button type="button" data-action="close-login" class="px-4 py-2 rounded-md border border-line text-sm text-inksoft hover:text-ink transition-colors">Annuler</button>
+      <div class="mb-8 space-y-4">
+        <div class="flex flex-col sm:flex-row gap-3">
+          <input type="text" placeholder="Rechercher un document..." value="${esc(state.search)}"
+            oninput="state.search=this.value;render()"
+            class="flex-1 px-4 py-2.5 border border-line rounded-lg bg-card focus-ring text-sm" />
+          
+          ${state.isAdmin ? `
+            <label class="px-5 py-2.5 bg-teal text-white rounded-lg hover:bg-teal-dark transition cursor-pointer focus-ring inline-flex items-center justify-center gap-2 text-sm font-medium whitespace-nowrap">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              ${state.uploading ? 'Upload...' : 'Ajouter'}
+              <input type="file" multiple onchange="handleFileUpload(event)" class="hidden" ${state.uploading?'disabled':''}/>
+            </label>
+          ` : ''}
         </div>
-      </form>
-    </div>
-  </div>`;
+
+        <div class="flex flex-wrap gap-2">
+          <button onclick="state.activeCategory='Tous';render()"
+            class="px-3 py-1.5 rounded-md text-sm transition focus-ring ${state.activeCategory==='Tous' ? 'bg-teal text-white' : 'bg-card border border-line hover:border-teal text-inksoft'}">
+            Tous
+          </button>
+          ${CONFIG.defaultCategories.map(cat => `
+            <button onclick="state.activeCategory='${esc(cat)}';render()"
+              class="px-3 py-1.5 rounded-md text-sm transition focus-ring ${state.activeCategory===cat ? 'bg-teal text-white' : 'bg-card border border-line hover:border-teal text-inksoft'}">
+              ${esc(cat)}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+
+      ${state.loading ? `
+        <div class="flex items-center justify-center py-20">
+          <svg class="w-8 h-8 text-teal spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        </div>
+      ` : filteredDocs.length === 0 ? `
+        <div class="text-center py-20 text-inksoft">
+          <p class="text-lg">Aucun document trouvé</p>
+        </div>
+      ` : `
+        <div class="grid gap-3">
+          ${filteredDocs.map(doc => {
+            const ext = extOf(doc.name);
+            const color = extColor(ext);
+            return `
+              <div class="bg-card border border-line rounded-lg p-4 hover:shadow-md transition rise group">
+                <div class="flex items-start justify-between gap-4">
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+                      <span class="px-2 py-0.5 bg-${color}-light text-${color} text-xs font-mono font-semibold rounded">${esc(ext)}</span>
+                      <span class="px-2 py-0.5 bg-teal-light text-teal text-xs rounded">${esc(doc.category)}</span>
+                    </div>
+                    <h3 class="font-semibold text-base truncate pr-2" title="${esc(doc.name)}">${esc(doc.name)}</h3>
+                    <div class="flex items-center gap-3 mt-1.5 text-xs text-inksoft tick">
+                      <span>${humanSize(doc.size)}</span>
+                      <span class="text-line">•</span>
+                      <span>${formatDate(doc.date)}</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <a href="${RAW_BASE}/${doc.path}" download="${esc(doc.name)}"
+                      class="px-3 py-2 bg-teal text-white rounded-lg hover:bg-teal-dark transition focus-ring text-sm inline-flex items-center gap-1.5">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                      <span class="hidden sm:inline">Télécharger</span>
+                    </a>
+                    ${state.isAdmin ? `
+                      <button onclick="deleteDocument('${doc.id}')" 
+                        class="px-2.5 py-2 bg-rust-light text-rust rounded-lg hover:bg-rust hover:text-white transition focus-ring opacity-0 group-hover:opacity-100">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      </button>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
+    </main>
+
+    ${state.showLogin ? `
+      <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm" onclick="if(event.target===this){state.showLogin=false;render()}">
+        <div class="bg-card rounded-xl shadow-2xl max-w-md w-full p-6 rise">
+          <h2 class="font-display text-xl font-bold mb-2">Connexion Admin</h2>
+          <p class="text-inksoft text-sm mb-4">Token GitHub personnel avec scope <code class="bg-paper px-1 rounded">repo</code></p>
+          ${state.loginError ? `<div class="mb-3 p-2 bg-rust-light text-rust rounded text-sm">${esc(state.loginError)}</div>` : ''}
+          <input type="password" id="gh-token" placeholder="ghp_..." class="w-full px-4 py-2.5 border border-line rounded-lg mb-4 focus-ring font-mono text-sm" />
+          <div class="flex gap-3">
+            <button onclick="state.showLogin=false;render()" class="flex-1 px-4 py-2.5 border border-line rounded-lg hover:bg-paper transition focus-ring text-sm">Annuler</button>
+            <button onclick="handleLogin(document.getElementById('gh-token').value)" class="flex-1 px-4 py-2.5 bg-teal text-white rounded-lg hover:bg-teal-dark transition focus-ring text-sm font-medium">Connexion</button>
+          </div>
+          <p class="text-xs text-inksoft mt-4 text-center">Le token n'est jamais enregistré.</p>
+        </div>
+      </div>
+    ` : ''}
+
+    <footer class="border-t border-line mt-auto">
+      <div class="max-w-7xl mx-auto px-4 py-5 text-center text-inksoft text-xs">
+        Stockage via GitHub • ${esc(CONFIG.githubOwner)}/${esc(CONFIG.githubRepo)}
+      </div>
+    </footer>
+  `;
 }
 
-function renderFooter() {
-  return `
-  <footer class="border-t border-line mt-auto">
-    <div class="max-w-5xl mx-auto px-5 sm:px-8 py-6 text-xs text-inksoft/70 font-mono">
-      ${state.documents.length} document${state.documents.length > 1 ? 's' : ''} au total
-    </div>
-  </footer>`;
-}
-
-init();
+// Initialisation
+loadDocuments();
 </script>
-
 </body>
 </html>
