@@ -46,7 +46,6 @@
      CSS SPÉCIALISÉ PAR APPAREIL
      ========================================= */
   
-  /* Transitions globales */
   body, div, header, footer, button, input { 
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease; 
   }
@@ -75,35 +74,37 @@
   ::-webkit-scrollbar-thumb { background: #DAD3C0; border-radius: 4px; }
   .dark ::-webkit-scrollbar-thumb { background: #333; }
 
-  /* --- MOBILE (< 640px) --- */
-  @media (max-width: 639px) {
+  /* --- MOBILE (< 768px) --- */
+  @media (max-width: 767px) {
     .doc-card {
       padding: 1rem;
       border-radius: 1rem;
       margin-bottom: 0.75rem;
+      display: flex;
+      flex-direction: column;
     }
-    .doc-icon {
+    .doc-icon-box {
       width: 3rem;
       height: 3rem;
       font-size: 1.25rem;
     }
-    .doc-title {
-      font-size: 0.95rem;
-      line-height: 1.3;
-    }
     /* Bouton télécharger pleine largeur en bas sur mobile */
-    .mobile-download-btn {
+    .action-area {
       width: 100%;
       margin-top: 0.75rem;
       padding-top: 0.75rem;
-      padding-bottom: 0.75rem;
       border-top: 1px solid var(--line-color, #DAD3C0);
-      justify-content: center;
-    }
-    .admin-actions-mobile {
       display: flex;
       gap: 0.5rem;
-      margin-top: 0.5rem;
+      flex-direction: row;
+    }
+    .download-btn {
+      flex: 1;
+      justify-content: center;
+    }
+    .admin-btn {
+      width: 44px;
+      flex-shrink: 0;
     }
     .category-badge {
       font-size: 0.65rem;
@@ -111,42 +112,51 @@
     }
   }
 
-  /* --- TABLETTE (640px - 1024px) --- */
-  @media (min-width: 640px) and (max-width: 1024px) {
-    .doc-card {
-      padding: 1.25rem;
-    }
-    .mobile-download-btn {
-      width: auto;
-      margin-top: 0;
-      padding-top: 0.5rem;
-      padding-bottom: 0.5rem;
-      border-top: none;
-      justify-content: flex-start;
-    }
-  }
-
-  /* --- PC / DESKTOP (> 1024px) --- */
-  @media (min-width: 1025px) {
+  /* --- TABLETTE & PC (> 768px) --- */
+  @media (min-width: 768px) {
     .doc-list-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1rem;
+      grid-template-columns: repeat(2, 1fr); /* 2 colonnes sur tablette/pc */
+      gap: 1.5rem;
     }
+    
     .doc-card {
       padding: 1.5rem;
+      display: flex;
+      flex-direction: row; /* Horizontal sur PC */
+      align-items: flex-start;
+      justify-content: space-between;
     }
-    .mobile-download-btn {
+
+    .doc-icon-box {
+      width: 3.5rem;
+      height: 3.5rem;
+      font-size: 1.5rem;
+      margin-right: 1rem;
+    }
+
+    .info-area {
+      flex: 1;
+      min-width: 0; /* Permet le truncate */
+    }
+
+    .action-area {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-left: 1rem;
+      flex-shrink: 0;
+      align-items: flex-end;
+    }
+
+    .download-btn {
       width: auto;
-      margin-top: 0;
-      border-top: none;
+      white-space: nowrap;
     }
-    .admin-actions-desktop {
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-    .doc-card:hover .admin-actions-desktop {
-      opacity: 1;
+    
+    .admin-actions-row {
+      display: flex;
+      gap: 0.5rem;
     }
   }
 </style>
@@ -575,54 +585,48 @@ function render() {
               const cats = doc.categories || (doc.category ? [doc.category] : ['Autres']);
 
               return `
-                <div class="stagger-item doc-card bg-card border border-line hover-lift group flex flex-col dark:bg-dark-card dark:border-dark-line" style="animation-delay: ${index * 0.05}s">
-                  <!-- Partie Haute : Info Fichier -->
-                  <div class="flex items-start gap-4 flex-1">
-                    <div class="shrink-0 mt-1">
-                      <div class="flex items-center justify-center doc-icon rounded-xl bg-${color}-light text-${color} shadow-sm dark:bg-opacity-20">
-                        <i class="fa-solid ${iconClass}"></i>
-                      </div>
+                <div class="stagger-item doc-card bg-card border border-line hover-lift group dark:bg-dark-card dark:border-dark-line" style="animation-delay: ${index * 0.05}s">
+                  
+                  <!-- Icône -->
+                  <div class="shrink-0 mt-1">
+                    <div class="flex items-center justify-center doc-icon-box rounded-xl bg-${color}-light text-${color} shadow-sm dark:bg-opacity-20">
+                      <i class="fa-solid ${iconClass}"></i>
                     </div>
-                    <div class="min-w-0 flex-1 pt-1">
-                      <h3 class="font-bold doc-title text-ink truncate pr-2 dark:text-dark-text mb-1" title="${esc(doc.name)}">${esc(doc.name)}</h3>
-                      <div class="flex flex-wrap items-center gap-2 mb-2">
-                        ${cats.map(c => `<span class="category-badge px-2 py-0.5 bg-gray-100 rounded uppercase tracking-wide text-gray-600 dark:bg-gray-700 dark:text-gray-300">${esc(c)}</span>`).join('')}
-                      </div>
-                      <div class="flex items-center gap-3 text-xs text-inksoft dark:text-dark-soft">
-                        <span><i class="fa-solid fa-hard-drive mr-1"></i>${humanSize(doc.size)}</span>
-                        <span class="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <span><i class="fa-regular fa-calendar mr-1"></i>${formatDate(doc.date)}</span>
-                      </div>
+                  </div>
+
+                  <!-- Infos (Titre, Badges, Date) -->
+                  <div class="info-area pt-1">
+                    <h3 class="font-bold text-base sm:text-lg text-ink truncate pr-2 dark:text-dark-text mb-1" title="${esc(doc.name)}">${esc(doc.name)}</h3>
+                    <div class="flex flex-wrap items-center gap-2 mb-2">
+                      ${cats.map(c => `<span class="category-badge px-2 py-0.5 bg-gray-100 rounded uppercase tracking-wide text-gray-600 dark:bg-gray-700 dark:text-gray-300">${esc(c)}</span>`).join('')}
+                    </div>
+                    <div class="flex items-center gap-3 text-xs text-inksoft dark:text-dark-soft">
+                      <span><i class="fa-solid fa-hard-drive mr-1"></i>${humanSize(doc.size)}</span>
+                      <span class="w-1 h-1 bg-gray-300 rounded-full"></span>
+                      <span><i class="fa-regular fa-calendar mr-1"></i>${formatDate(doc.date)}</span>
                     </div>
                   </div>
                   
-                  <!-- Partie Basse : Boutons (Adaptatif Mobile/PC) -->
-                  <div class="flex items-center gap-3 mobile-download-btn">
+                  <!-- Zone d'Actions (Boutons) -->
+                  <div class="action-area">
                     <button onclick="forceDownload('${rawUrl}', '${esc(doc.name).replace(/'/g, "\\'")}')" 
-                      class="btn-touch bg-teal text-white rounded-lg hover:bg-teal-dark transition-all text-sm font-bold shadow-sm active:scale-95 flex items-center justify-center gap-2 w-full sm:w-auto">
+                      class="btn-touch download-btn bg-teal text-white rounded-lg hover:bg-teal-dark transition-all text-sm font-bold shadow-sm active:scale-95 flex items-center justify-center gap-2">
                       <i class="fa-solid fa-download"></i>
                       <span>Télécharger</span>
                     </button>
                     
                     ${state.isAdmin ? `
-                      <div class="admin-actions-desktop flex gap-2 ml-auto">
-                        <button onclick="prepareUpdate('${doc.id}')" class="btn-touch w-10 h-10 bg-gold-light text-gold rounded-lg hover:bg-gold hover:text-white transition-all dark:bg-opacity-20" title="Mettre à jour">
+                      <div class="admin-actions-row">
+                        <button onclick="prepareUpdate('${doc.id}')" class="btn-touch admin-btn bg-gold-light text-gold rounded-lg hover:bg-gold hover:text-white transition-all dark:bg-opacity-20" title="Mettre à jour">
                           <i class="fa-solid fa-rotate"></i>
                         </button>
-                        <button onclick="deleteDocument('${doc.id}')" class="btn-touch w-10 h-10 bg-rust-light text-rust rounded-lg hover:bg-rust hover:text-white transition-all dark:bg-opacity-20" title="Supprimer">
+                        <button onclick="deleteDocument('${doc.id}')" class="btn-touch admin-btn bg-rust-light text-rust rounded-lg hover:bg-rust hover:text-white transition-all dark:bg-opacity-20" title="Supprimer">
                           <i class="fa-solid fa-trash-can"></i>
-                        </button>
-                      </div>
-                      <div class="admin-actions-mobile sm:hidden">
-                         <button onclick="prepareUpdate('${doc.id}')" class="btn-touch flex-1 h-10 bg-gold-light text-gold rounded-lg hover:bg-gold hover:text-white transition-all dark:bg-opacity-20 text-xs font-bold">
-                          <i class="fa-solid fa-rotate mr-1"></i> Update
-                        </button>
-                        <button onclick="deleteDocument('${doc.id}')" class="btn-touch flex-1 h-10 bg-rust-light text-rust rounded-lg hover:bg-rust hover:text-white transition-all dark:bg-opacity-20 text-xs font-bold">
-                          <i class="fa-solid fa-trash-can mr-1"></i> Suppr.
                         </button>
                       </div>
                     ` : ''}
                   </div>
+
                 </div>
               `;
             }).join('')}
