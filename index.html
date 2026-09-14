@@ -13,11 +13,7 @@
     theme: {
       extend: {
         colors: {
-          paper: '#F7F4EC',
-          ink: '#1E2A3A',
-          inksoft: '#586274',
-          line: '#DAD3C0',
-          card: '#FFFEFB',
+          paper: '#F7F4EC', ink: '#1E2A3A', inksoft: '#586274', line: '#DAD3C0', card: '#FFFEFB',
           teal: { DEFAULT: '#2F6F5E', dark: '#234F43', light: '#E4EEE9' },
           gold: { DEFAULT: '#9C6B2B', light: '#F3E7D3' },
           rust: { DEFAULT: '#A8432E', light: '#F5E1DB' },
@@ -41,43 +37,45 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .focus-ring:focus-visible { outline: 2px solid #2F6F5E; outline-offset: 2px; }
   input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid #2F6F5E; outline-offset: 1px; }
+  
+  .drop-zone { border: 2px dashed #DAD3C0; transition: all 0.2s ease; }
+  .drop-zone.drag-over { border-color: #2F6F5E; background-color: #E4EEE9; transform: scale(1.01); }
 </style>
 </head>
-<body class="font-sans text-ink min-h-screen">
+<body class="font-sans text-ink min-h-screen flex flex-col">
 
-<div id="app" class="min-h-screen flex flex-col"></div>
+<div id="app" class="flex-1 flex flex-col"></div>
 
 <script>
 /* ============================================================
-   CONFIGURATION — À ADAPTER À VOTRE DÉPÔT GITHUB
+   CONFIGURATION
    ============================================================ */
 const CONFIG = {
   classTitle: "Portail Documents",
   className: "1MCVA",
-  githubOwner: "metal54400",   // ex: "jdupont"
-  githubRepo: "1MCVA",      // nom exact du dépôt
+  githubOwner: "metal54400", 
+  githubRepo: "1MCVA",
   githubBranch: "main",
-  filesFolder: "files",                 // dossier où sont rangés les fichiers
-  manifestPath: "manifest.json",        // fichier index listant les documents
-  maxFileMB: 48900,
+  filesFolder: "files",
+  manifestPath: "manifest.json",
+  maxFileMB: 20,
   defaultCategories: ["Cours", "Diapositives", "TD / TP", "Examens", "Annonces", "Autres"],
 };
 
-/* ============================================================
-   ÉTAT GLOBAL
-   ============================================================ */
 let state = {
   isAdmin: false,
-  githubToken: "",      // En mémoire uniquement, jamais persisté
+  githubToken: "",
   documents: [],
-  manifestSha: null,    // SHA actuel pour éviter les conflits lors de l'update
+  manifestSha: null,
   search: "",
   activeCategory: "Tous",
   loading: true,
   uploading: false,
+  uploadStats: { current: 0, total: 0, errors: [] },
   error: null,
   showLogin: false,
   loginError: null,
+  isDragging: false,
 };
 
 const root = document.getElementById('app');
@@ -87,55 +85,25 @@ const API_BASE = `https://api.github.com/repos/${CONFIG.githubOwner}/${CONFIG.gi
 /* ============================================================
    UTILITAIRES
    ============================================================ */
-function esc(str) {
-  const d = document.createElement('div');
-  d.innerText = str ?? "";
-  return d.innerHTML;
-}
-
+function esc(str) { const d = document.createElement('div'); d.innerText = str ?? ""; return d.innerHTML; }
 function humanSize(bytes) {
   if (bytes < 1024) return bytes + " o";
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " Ko";
   return (bytes / (1024 * 1024)).toFixed(1) + " Mo";
 }
-
-function formatDate(iso) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function extOf(name) {
-  const parts = name.split('.');
-  return parts.length > 1 ? parts.pop().toUpperCase() : "FILE";
-}
-
+function formatDate(iso) { return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }); }
+function extOf(name) { const p = name.split('.'); return p.length > 1 ? p.pop().toUpperCase() : "FILE"; }
 function extColor(ext) {
-  const map = {
-    PDF: "rust", 
-    DOC: "teal", DOCX: "teal", ODT: "teal", TXT: "teal", MD: "teal",
-    XLS: "gold", XLSX: "gold", ODS: "gold", CSV: "gold",
-    PPT: "rust", PPTX: "rust", ODP: "rust", KEY: "rust",
-    ZIP: "inksoft", RAR: "inksoft", "7Z": "inksoft", TAR: "inksoft",
-    JPG: "gold", JPEG: "gold", PNG: "gold", GIF: "gold", SVG: "gold",
-  };
+  const map = { PDF:"rust", DOC:"teal", DOCX:"teal", ODT:"teal", PPT:"rust", PPTX:"rust", ODP:"rust", XLS:"gold", XLSX:"gold", ZIP:"inksoft", JPG:"gold", PNG:"gold" };
   return map[ext] || "inksoft";
 }
-
-function genId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
-function safeName(name) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, '_');
-}
-
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function safeName(name) { return name.replace(/[^a-zA-Z0-9._-]/g, '_'); }
 function bufferToBase64(buffer) {
   let binary = '';
   const bytes = new Uint8Array(buffer);
   const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-  }
+  for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
   return btoa(binary);
 }
 
@@ -143,23 +111,13 @@ function bufferToBase64(buffer) {
    API GITHUB
    ============================================================ */
 async function apiRequest(endpoint, options = {}) {
-  const headers = {
-    'Accept': 'application/vnd.github.v3+json',
-    ...options.headers
-  };
-  
-  if (state.githubToken) {
-    headers['Authorization'] = `token ${state.githubToken}`;
-  }
-  
+  const headers = { 'Accept': 'application/vnd.github.v3+json', ...options.headers };
+  if (state.githubToken) headers['Authorization'] = `token ${state.githubToken}`;
   const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
-  
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
     throw new Error(error.message || `HTTP ${response.status}`);
   }
-  
-  // Pour DELETE, pas de contenu JSON
   if (response.status === 204) return null;
   return response.json();
 }
@@ -168,298 +126,257 @@ async function loadManifest() {
   try {
     const data = await apiRequest(`/${CONFIG.manifestPath}`);
     state.manifestSha = data.sha;
-    const content = atob(data.content);
-    return JSON.parse(content);
-  } catch (error) {
-    if (error.message.includes('404')) return [];
-    throw error;
-  }
+    return JSON.parse(atob(data.content));
+  } catch (e) { if (e.message.includes('404')) return []; throw e; }
 }
 
 async function saveManifest(documents) {
   const content = btoa(JSON.stringify(documents, null, 2));
   await apiRequest(`/${CONFIG.manifestPath}`, {
     method: 'PUT',
-    body: JSON.stringify({
-      message: 'Update manifest',
-      content: content,
-      sha: state.manifestSha
-    })
+    body: JSON.stringify({ message: 'Update manifest', content, sha: state.manifestSha })
   });
-  // Recharger pour obtenir le nouveau SHA
   const data = await apiRequest(`/${CONFIG.manifestPath}`);
   state.manifestSha = data.sha;
 }
 
 async function uploadFileToGitHub(file, path) {
   const buffer = await file.arrayBuffer();
-  const content = bufferToBase64(buffer);
-  
   return apiRequest(`/${path}`, {
     method: 'PUT',
-    body: JSON.stringify({
-      message: `Upload: ${file.name}`,
-      content: content
-    })
+    body: JSON.stringify({ message: `Upload: ${file.name}`, content: bufferToBase64(buffer) })
   });
 }
 
 async function deleteFileFromGitHub(path, sha) {
-  await apiRequest(`/${path}`, {
-    method: 'DELETE',
-    body: JSON.stringify({
-      message: `Delete: ${path}`,
-      sha: sha
-    })
-  });
+  await apiRequest(`/${path}`, { method: 'DELETE', body: JSON.stringify({ message: `Delete: ${path}`, sha }) });
 }
 
 /* ============================================================
-   LOGIQUE MÉTIER
+   LOGIQUE MÉTIER & UPLOAD MASSIF
    ============================================================ */
 async function loadDocuments() {
-  state.loading = true;
-  state.error = null;
-  render();
-  
+  state.loading = true; state.error = null; render();
   try {
-    const documents = await loadManifest();
-    state.documents = documents.sort((a, b) => new Date(b.date) - new Date(a.date));
-  } catch (error) {
-    state.error = `Erreur de chargement: ${error.message}`;
-    state.documents = [];
-  } finally {
-    state.loading = false;
-    render();
-  }
+    state.documents = (await loadManifest()).sort((a, b) => new Date(b.date) - new Date(a.date));
+  } catch (e) { state.error = `Erreur: ${e.message}`; state.documents = []; }
+  finally { state.loading = false; render(); }
 }
 
-async function handleFileUpload(event) {
-  const files = Array.from(event.target.files);
-  if (files.length === 0) return;
+// Fonction optimisée pour traiter des milliers de fichiers
+async function processFiles(files) {
+  if (!files || files.length === 0) return;
   
   state.uploading = true;
   state.error = null;
+  state.uploadStats = { current: 0, total: files.length, errors: [] };
   render();
-  
-  try {
-    for (const file of files) {
-      if (file.size > CONFIG.maxFileMB * 1024 * 1024) {
-        throw new Error(`"${file.name}" dépasse ${CONFIG.maxFileMB} Mo`);
-      }
-      
-      const safeFileName = safeName(file.name);
-      const filePath = `${CONFIG.filesFolder}/${Date.now()}_${safeFileName}`;
-      
-      await uploadFileToGitHub(file, filePath);
-      
-      const newDoc = {
-        id: genId(),
-        name: file.name,
-        path: filePath,
-        size: file.size,
-        type: file.type,
-        category: state.activeCategory === 'Tous' ? 'Autres' : state.activeCategory,
-        date: new Date().toISOString(),
-        uploadedBy: 'Admin'
-      };
-      
-      state.documents.unshift(newDoc);
-    }
+
+  // Traitement par lots de 5 pour éviter de saturer l'API GitHub
+  const batchSize = 5;
+  for (let i = 0; i < files.length; i += batchSize) {
+    const batch = Array.from(files).slice(i, i + batchSize);
     
-    await saveManifest(state.documents);
-    event.target.value = '';
-  } catch (error) {
-    state.error = `Erreur d'upload: ${error.message}`;
-  } finally {
-    state.uploading = false;
-    render();
+    await Promise.all(batch.map(async (file) => {
+      try {
+        if (file.size > CONFIG.maxFileMB * 1024 * 1024) throw new Error("Trop lourd");
+
+        const safeFileName = safeName(file.name);
+        const filePath = `${CONFIG.filesFolder}/${Date.now()}_${Math.random().toString(36).slice(2)}_${safeFileName}`;
+
+        await uploadFileToGitHub(file, filePath);
+        
+        state.documents.unshift({
+          id: genId(),
+          name: file.name,
+          path: filePath,
+          size: file.size,
+          type: file.type,
+          category: state.activeCategory === 'Tous' ? 'Autres' : state.activeCategory,
+          date: new Date().toISOString(),
+          uploadedBy: 'Admin'
+        });
+      } catch (err) {
+        state.uploadStats.errors.push(`${file.name}: ${err.message}`);
+      } finally {
+        state.uploadStats.current++;
+        render(); // Mise à jour en temps réel
+      }
+    }));
   }
+
+  if (state.documents.length > 0) await saveManifest(state.documents);
+  
+  if (state.uploadStats.errors.length > 0) {
+    state.error = `${state.uploadStats.errors.length} échecs. Ex: ${state.uploadStats.errors[0]}`;
+  }
+
+  state.uploading = false;
+  render();
 }
 
 async function deleteDocument(docId) {
-  if (!confirm('Supprimer définitivement ce document ?')) return;
-  
-  const docIndex = state.documents.findIndex(d => d.id === docId);
-  if (docIndex === -1) return;
-  
-  const doc = state.documents[docIndex];
-  
+  if (!confirm('Supprimer ce document ?')) return;
+  const idx = state.documents.findIndex(d => d.id === docId);
+  if (idx === -1) return;
+  const doc = state.documents[idx];
   try {
     const fileData = await apiRequest(`/${doc.path}`);
     await deleteFileFromGitHub(doc.path, fileData.sha);
-    
-    state.documents.splice(docIndex, 1);
+    state.documents.splice(idx, 1);
     await saveManifest(state.documents);
-  } catch (error) {
-    state.error = `Erreur de suppression: ${error.message}`;
-    render();
-  }
+  } catch (e) { state.error = `Erreur suppression: ${e.message}`; render(); }
 }
 
 function handleLogin(token) {
-  if (!token) {
-    state.loginError = 'Token requis';
-    render();
-    return;
-  }
-  state.githubToken = token;
-  state.isAdmin = true;
-  state.showLogin = false;
-  state.loginError = null;
+  if (!token) { state.loginError = 'Token requis'; render(); return; }
+  state.githubToken = token; state.isAdmin = true; state.showLogin = false; state.loginError = null;
   loadDocuments();
 }
 
-function handleLogout() {
-  state.githubToken = '';
-  state.isAdmin = false;
-  state.showLogin = false;
-  loadDocuments();
-}
-
-function getFilteredDocuments() {
-  let filtered = state.documents;
-  if (state.activeCategory !== 'Tous') {
-    filtered = filtered.filter(doc => doc.category === state.activeCategory);
-  }
-  if (state.search) {
-    const s = state.search.toLowerCase();
-    filtered = filtered.filter(doc => 
-      doc.name.toLowerCase().includes(s) || 
-      doc.category.toLowerCase().includes(s)
-    );
-  }
-  return filtered;
+/* ============================================================
+   GESTION DRAG & DROP
+   ============================================================ */
+function handleDragOver(e) { e.preventDefault(); state.isDragging = true; render(); }
+function handleDragLeave(e) { e.preventDefault(); state.isDragging = false; render(); }
+function handleDrop(e) {
+  e.preventDefault(); state.isDragging = false; render();
+  if (!state.isAdmin) { state.error = "Mode Admin requis."; render(); return; }
+  processFiles(e.dataTransfer.files);
 }
 
 /* ============================================================
    RENDU UI
    ============================================================ */
 function render() {
-  const filteredDocs = getFilteredDocuments();
-  
+  const filteredDocs = state.documents.filter(doc => {
+    const matchCat = state.activeCategory === 'Tous' || doc.category === state.activeCategory;
+    const matchSearch = !state.search || doc.name.toLowerCase().includes(state.search.toLowerCase());
+    return matchCat && matchSearch;
+  });
+
   root.innerHTML = `
     <header class="bg-card border-b border-line sticky top-0 z-30">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-        <div class="flex items-center justify-between">
-          <div>
-            <h1 class="font-display text-2xl sm:text-3xl font-bold text-ink">${esc(CONFIG.classTitle)}</h1>
-            <p class="text-inksoft text-sm mt-0.5">${esc(CONFIG.className)}</p>
-          </div>
-          <button onclick="${state.isAdmin ? 'handleLogout()' : 'state.showLogin=true;render()'}" 
-            class="px-4 py-2 rounded-lg transition focus-ring text-sm font-medium ${state.isAdmin ? 'bg-rust text-white hover:bg-rust/90' : 'bg-teal text-white hover:bg-teal-dark'}">
-            ${state.isAdmin ? 'Déconnexion' : 'Admin'}
-          </button>
+      <div class="max-w-7xl mx-auto px-4 py-5 flex justify-between items-center">
+        <div>
+          <h1 class="font-display text-2xl sm:text-3xl font-bold text-ink">${esc(CONFIG.classTitle)}</h1>
+          <p class="text-inksoft text-sm">${esc(CONFIG.className)}</p>
         </div>
+        <button onclick="${state.isAdmin ? 'handleLogout()' : 'state.showLogin=true;render()'}" 
+          class="px-4 py-2 rounded-lg transition focus-ring text-sm font-medium ${state.isAdmin ? 'bg-rust text-white' : 'bg-teal text-white'}">
+          ${state.isAdmin ? 'Déconnexion' : 'Admin'}
+        </button>
       </div>
     </header>
 
-    <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-      ${state.error ? `<div class="mb-6 p-4 bg-rust-light border border-rust/30 text-rust rounded-lg rise text-sm">${esc(state.error)}</div>` : ''}
+    <main class="flex-1 max-w-7xl mx-auto px-4 py-8 w-full" 
+      ondragover="handleDragOver(event)" 
+      ondragleave="handleDragLeave(event)" 
+      ondrop="handleDrop(event)">
+      
+      ${state.error ? `<div class="mb-6 p-4 bg-rust-light border border-rust/30 text-rust rounded-lg text-sm">${esc(state.error)}</div>` : ''}
 
       <div class="mb-8 space-y-4">
         <div class="flex flex-col sm:flex-row gap-3">
-          <input type="text" placeholder="Rechercher un document..." value="${esc(state.search)}"
+          <input type="text" placeholder="Rechercher..." value="${esc(state.search)}"
             oninput="state.search=this.value;render()"
             class="flex-1 px-4 py-2.5 border border-line rounded-lg bg-card focus-ring text-sm" />
           
           ${state.isAdmin ? `
             <label class="px-5 py-2.5 bg-teal text-white rounded-lg hover:bg-teal-dark transition cursor-pointer focus-ring inline-flex items-center justify-center gap-2 text-sm font-medium whitespace-nowrap">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-              ${state.uploading ? 'Upload...' : 'Ajouter'}
-              <input type="file" multiple onchange="handleFileUpload(event)" class="hidden" ${state.uploading?'disabled':''}/>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Ajouter des fichiers
+              <input type="file" multiple onchange="processFiles(this.files)" class="hidden"/>
             </label>
           ` : ''}
         </div>
 
         <div class="flex flex-wrap gap-2">
           <button onclick="state.activeCategory='Tous';render()"
-            class="px-3 py-1.5 rounded-md text-sm transition focus-ring ${state.activeCategory==='Tous' ? 'bg-teal text-white' : 'bg-card border border-line hover:border-teal text-inksoft'}">
-            Tous
-          </button>
+            class="px-3 py-1.5 rounded-md text-sm transition focus-ring ${state.activeCategory==='Tous' ? 'bg-teal text-white' : 'bg-card border border-line text-inksoft'}">Tous</button>
           ${CONFIG.defaultCategories.map(cat => `
             <button onclick="state.activeCategory='${esc(cat)}';render()"
-              class="px-3 py-1.5 rounded-md text-sm transition focus-ring ${state.activeCategory===cat ? 'bg-teal text-white' : 'bg-card border border-line hover:border-teal text-inksoft'}">
-              ${esc(cat)}
-            </button>
+              class="px-3 py-1.5 rounded-md text-sm transition focus-ring ${state.activeCategory===cat ? 'bg-teal text-white' : 'bg-card border border-line text-inksoft'}">${esc(cat)}</button>
           `).join('')}
         </div>
       </div>
 
-      ${state.loading ? `
-        <div class="flex items-center justify-center py-20">
-          <svg class="w-8 h-8 text-teal spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+      ${state.isAdmin && state.isDragging ? `
+        <div class="drop-zone drag-over rounded-xl p-12 mb-8 text-center flex flex-col items-center justify-center bg-teal-light/50 border-teal">
+          <svg class="w-12 h-12 text-teal mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+          <p class="text-lg font-semibold text-teal">Relâchez pour uploader</p>
+          <p class="text-sm text-inksoft">${state.uploadStats.total} fichiers détectés</p>
         </div>
-      ` : filteredDocs.length === 0 ? `
-        <div class="text-center py-20 text-inksoft">
-          <p class="text-lg">Aucun document trouvé</p>
+      ` : ''}
+
+      ${state.uploading ? `
+        <div class="mb-6 p-4 bg-card border border-line rounded-lg rise">
+          <div class="flex justify-between text-sm mb-1">
+            <span class="font-medium text-teal">Traitement en cours...</span>
+            <span class="text-inksoft">${state.uploadStats.current} / ${state.uploadStats.total}</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2.5">
+            <div class="bg-teal h-2.5 rounded-full transition-all duration-300" style="width: ${(state.uploadStats.current / state.uploadStats.total) * 100}%"></div>
+          </div>
         </div>
-      ` : `
-        <div class="grid gap-3">
+      ` : ''}
+
+      ${state.loading ? `<div class="flex justify-center py-20"><svg class="w-8 h-8 text-teal spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></div>` : 
+        filteredDocs.length === 0 ? `<div class="text-center py-20 text-inksoft">Aucun document trouvé</div>` :
+        `<div class="grid gap-3">
           ${filteredDocs.map(doc => {
             const ext = extOf(doc.name);
             const color = extColor(ext);
             return `
-              <div class="bg-card border border-line rounded-lg p-4 hover:shadow-md transition rise group">
-                <div class="flex items-start justify-between gap-4">
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 mb-1.5 flex-wrap">
-                      <span class="px-2 py-0.5 bg-${color}-light text-${color} text-xs font-mono font-semibold rounded">${esc(ext)}</span>
-                      <span class="px-2 py-0.5 bg-teal-light text-teal text-xs rounded">${esc(doc.category)}</span>
-                    </div>
-                    <h3 class="font-semibold text-base truncate pr-2" title="${esc(doc.name)}">${esc(doc.name)}</h3>
-                    <div class="flex items-center gap-3 mt-1.5 text-xs text-inksoft tick">
-                      <span>${humanSize(doc.size)}</span>
-                      <span class="text-line">•</span>
-                      <span>${formatDate(doc.date)}</span>
-                    </div>
+              <div class="bg-card border border-line rounded-lg p-4 hover:shadow-md transition rise group flex items-center justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="px-2 py-0.5 bg-${color}-light text-${color} text-xs font-mono font-semibold rounded">${esc(ext)}</span>
+                    <span class="px-2 py-0.5 bg-teal-light text-teal text-xs rounded">${esc(doc.category)}</span>
                   </div>
-                  <div class="flex items-center gap-2 shrink-0">
-                    <a href="${RAW_BASE}/${doc.path}" download="${esc(doc.name)}"
-                      class="px-3 py-2 bg-teal text-white rounded-lg hover:bg-teal-dark transition focus-ring text-sm inline-flex items-center gap-1.5">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                      <span class="hidden sm:inline">Télécharger</span>
-                    </a>
-                    ${state.isAdmin ? `
-                      <button onclick="deleteDocument('${doc.id}')" 
-                        class="px-2.5 py-2 bg-rust-light text-rust rounded-lg hover:bg-rust hover:text-white transition focus-ring opacity-0 group-hover:opacity-100">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                      </button>
-                    ` : ''}
+                  <h3 class="font-semibold text-base truncate" title="${esc(doc.name)}">${esc(doc.name)}</h3>
+                  <div class="flex items-center gap-3 mt-1 text-xs text-inksoft tick">
+                    <span>${humanSize(doc.size)}</span><span>•</span><span>${formatDate(doc.date)}</span>
                   </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <a href="${RAW_BASE}/${doc.path}" download="${esc(doc.name)}"
+                    class="px-3 py-2 bg-teal text-white rounded-lg hover:bg-teal-dark transition focus-ring text-sm inline-flex items-center gap-1.5">
+                    Télécharger
+                  </a>
+                  ${state.isAdmin ? `
+                    <button onclick="deleteDocument('${doc.id}')" class="px-2.5 py-2 bg-rust-light text-rust rounded-lg hover:bg-rust hover:text-white transition opacity-0 group-hover:opacity-100">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                  ` : ''}
                 </div>
               </div>
             `;
           }).join('')}
-        </div>
-      `}
+        </div>`
+      }
     </main>
 
     ${state.showLogin ? `
       <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm" onclick="if(event.target===this){state.showLogin=false;render()}">
         <div class="bg-card rounded-xl shadow-2xl max-w-md w-full p-6 rise">
           <h2 class="font-display text-xl font-bold mb-2">Connexion Admin</h2>
-          <p class="text-inksoft text-sm mb-4">Token GitHub personnel avec scope <code class="bg-paper px-1 rounded">repo</code></p>
-          ${state.loginError ? `<div class="mb-3 p-2 bg-rust-light text-rust rounded text-sm">${esc(state.loginError)}</div>` : ''}
+          <p class="text-inksoft text-sm mb-4">Token GitHub (scope repo)</p>
           <input type="password" id="gh-token" placeholder="ghp_..." class="w-full px-4 py-2.5 border border-line rounded-lg mb-4 focus-ring font-mono text-sm" />
           <div class="flex gap-3">
-            <button onclick="state.showLogin=false;render()" class="flex-1 px-4 py-2.5 border border-line rounded-lg hover:bg-paper transition focus-ring text-sm">Annuler</button>
-            <button onclick="handleLogin(document.getElementById('gh-token').value)" class="flex-1 px-4 py-2.5 bg-teal text-white rounded-lg hover:bg-teal-dark transition focus-ring text-sm font-medium">Connexion</button>
+            <button onclick="state.showLogin=false;render()" class="flex-1 px-4 py-2.5 border border-line rounded-lg hover:bg-paper transition text-sm">Annuler</button>
+            <button onclick="handleLogin(document.getElementById('gh-token').value)" class="flex-1 px-4 py-2.5 bg-teal text-white rounded-lg hover:bg-teal-dark transition text-sm font-medium">Connexion</button>
           </div>
-          <p class="text-xs text-inksoft mt-4 text-center">Le token n'est jamais enregistré.</p>
         </div>
       </div>
     ` : ''}
-
-    <footer class="border-t border-line mt-auto">
-      <div class="max-w-7xl mx-auto px-4 py-5 text-center text-inksoft text-xs">
-        Stockage via GitHub • ${esc(CONFIG.githubOwner)}/${esc(CONFIG.githubRepo)}
-      </div>
+    
+    <footer class="border-t border-line mt-auto py-5 text-center text-inksoft text-xs">
+      Stockage via GitHub • ${esc(CONFIG.githubOwner)}/${esc(CONFIG.githubRepo)}
     </footer>
   `;
 }
 
-// Initialisation
 loadDocuments();
 </script>
 </body>
