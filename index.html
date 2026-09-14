@@ -7,16 +7,29 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
+    darkMode: 'class', // Activation du mode sombre via classe CSS
     theme: {
       extend: {
         colors: {
+          // Couleurs Mode Clair
           paper: '#F7F4EC', ink: '#1E2A3A', inksoft: '#586274', line: '#DAD3C0', card: '#FFFEFB',
           teal: { DEFAULT: '#2F6F5E', dark: '#234F43', light: '#E4EEE9' },
           gold: { DEFAULT: '#9C6B2B', light: '#F3E7D3' },
           rust: { DEFAULT: '#A8432E', light: '#F5E1DB' },
+          
+          // Couleurs Mode Sombre (Personnalisées)
+          dark: {
+            bg: '#121212',       // Fond très sombre
+            card: '#1E1E1E',     // Cartes légèrement plus claires
+            line: '#333333',     // Bordures subtiles
+            text: '#E0E0E0',     // Texte principal clair
+            soft: '#A0A0A0'      // Texte secondaire
+          }
         },
         fontFamily: {
           display: ['"Fraunces"', 'serif'],
@@ -28,6 +41,11 @@
   };
 </script>
 <style>
+  /* Transition douce entre les thèmes */
+  body, div, header, footer, button, input {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  }
+  
   body { background-color: #F7F4EC; -webkit-tap-highlight-color: transparent; }
   ::selection { background: #2F6F5E; color: #FFFEFB; }
   .tick { font-variant-numeric: tabular-nums; }
@@ -35,21 +53,50 @@
   .rise { animation: rise .35s ease both; }
   .spin { animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  
   .focus-ring:focus-visible { outline: 2px solid #2F6F5E; outline-offset: 2px; }
   input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid #2F6F5E; outline-offset: 1px; }
   
   .drop-zone { border: 2px dashed #DAD3C0; transition: all 0.2s ease; }
   .drop-zone.drag-over { border-color: #2F6F5E; background-color: #E4EEE9; transform: scale(1.01); }
   
-  /* Amélioration tactile pour mobile */
   .btn-touch { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
 </style>
 </head>
-<body class="font-sans text-ink min-h-screen flex flex-col">
+<body class="font-sans text-ink min-h-screen flex flex-col dark:bg-dark-bg dark:text-dark-text">
 
 <div id="app" class="flex-1 flex flex-col"></div>
 
 <script>
+/* ============================================================
+   GESTION DU THÈME
+   ============================================================ */
+function initTheme() {
+  const savedTheme = localStorage.getItem('theme');
+  const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  
+  if (savedTheme === 'dark' || (!savedTheme && systemDark)) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  if (html.classList.contains('dark')) {
+    html.classList.remove('dark');
+    localStorage.setItem('theme', 'light');
+  } else {
+    html.classList.add('dark');
+    localStorage.setItem('theme', 'dark');
+  }
+  render(); // Re-render pour mettre à jour l'icône
+}
+
+// Initialisation immédiate
+initTheme();
+
 /* ============================================================
    CONFIGURATION
    ============================================================ */
@@ -115,7 +162,6 @@ function bufferToBase64(buffer) {
    ============================================================ */
 async function forceDownload(url, filename) {
   try {
-    // Sur mobile, on fetch le blob pour contourner les restrictions CORS de GitHub Raw
     const response = await fetch(url);
     if (!response.ok) throw new Error('Network response was not ok');
     
@@ -129,12 +175,10 @@ async function forceDownload(url, filename) {
     document.body.appendChild(a);
     a.click();
     
-    // Nettoyage
     window.URL.revokeObjectURL(blobUrl);
     document.body.removeChild(a);
   } catch (error) {
     console.error('Download failed, falling back to direct link:', error);
-    // Fallback : ouverture directe si le blob échoue (rare)
     window.open(url, '_blank');
   }
 }
@@ -286,6 +330,7 @@ function handleDrop(e) {
    RENDU UI
    ============================================================ */
 function render() {
+  const isDark = document.documentElement.classList.contains('dark');
   const filteredDocs = state.documents.filter(doc => {
     const matchCat = state.activeCategory === 'Tous' || doc.category === state.activeCategory;
     const matchSearch = !state.search || doc.name.toLowerCase().includes(state.search.toLowerCase());
@@ -293,16 +338,24 @@ function render() {
   });
 
   root.innerHTML = `
-    <header class="bg-card border-b border-line sticky top-0 z-30 shadow-sm">
+    <header class="bg-card border-b border-line sticky top-0 z-30 shadow-sm dark:bg-dark-card dark:border-dark-line dark:text-dark-text">
       <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
         <div>
-          <h1 class="font-display text-xl sm:text-3xl font-bold text-ink leading-tight">${esc(CONFIG.classTitle)}</h1>
-          <p class="text-inksoft text-xs sm:text-sm">${esc(CONFIG.className)}</p>
+          <h1 class="font-display text-xl sm:text-3xl font-bold text-ink dark:text-dark-text leading-tight">
+            <i class="fa-solid fa-folder-open mr-2 text-teal"></i>${esc(CONFIG.classTitle)}
+          </h1>
+          <p class="text-inksoft dark:text-dark-soft text-xs sm:text-sm">${esc(CONFIG.className)}</p>
         </div>
-        <button onclick="${state.isAdmin ? 'handleLogout()' : 'state.showLogin=true;render()'}" 
-          class="btn-touch px-4 py-2 rounded-lg transition focus-ring text-sm font-medium ${state.isAdmin ? 'bg-rust text-white' : 'bg-teal text-white'}">
-          ${state.isAdmin ? 'Quitter' : 'Admin'}
-        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleTheme()" class="btn-touch px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition focus-ring text-ink dark:text-dark-text" title="Changer le thème">
+            <i class="fa-solid ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
+          </button>
+          <button onclick="${state.isAdmin ? 'handleLogout()' : 'state.showLogin=true;render()'}" 
+            class="btn-touch px-4 py-2 rounded-lg transition focus-ring text-sm font-medium ${state.isAdmin ? 'bg-rust text-white' : 'bg-teal text-white'}">
+            <i class="fa-solid ${state.isAdmin ? 'fa-right-from-bracket' : 'fa-user-shield'} mr-2"></i>
+            ${state.isAdmin ? 'Quitter' : 'Admin'}
+          </button>
+        </div>
       </div>
     </header>
 
@@ -311,17 +364,20 @@ function render() {
       ondragleave="handleDragLeave(event)" 
       ondrop="handleDrop(event)">
       
-      ${state.error ? `<div class="mb-6 p-4 bg-rust-light border border-rust/30 text-rust rounded-lg text-sm">${esc(state.error)}</div>` : ''}
+      ${state.error ? `<div class="mb-6 p-4 bg-rust-light border border-rust/30 text-rust rounded-lg text-sm"><i class="fa-solid fa-circle-exclamation mr-2"></i>${esc(state.error)}</div>` : ''}
 
       <div class="mb-6 space-y-4">
         <div class="flex flex-col sm:flex-row gap-3">
-          <input type="text" placeholder="Rechercher un document..." value="${esc(state.search)}"
-            oninput="state.search=this.value;render()"
-            class="flex-1 px-4 py-3 border border-line rounded-lg bg-card focus-ring text-sm sm:text-base" />
+          <div class="relative flex-1">
+            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-inksoft dark:text-dark-soft"></i>
+            <input type="text" placeholder="Rechercher un document..." value="${esc(state.search)}"
+              oninput="state.search=this.value;render()"
+              class="w-full pl-10 pr-4 py-3 border border-line rounded-lg bg-card focus-ring text-sm sm:text-base dark:bg-dark-card dark:border-dark-line dark:text-dark-text dark:placeholder-gray-500" />
+          </div>
           
           ${state.isAdmin ? `
             <label class="btn-touch px-5 py-3 bg-teal text-white rounded-lg hover:bg-teal-dark transition cursor-pointer focus-ring inline-flex items-center justify-center gap-2 text-sm font-medium whitespace-nowrap shadow-sm">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <i class="fa-solid fa-cloud-arrow-up"></i>
               <span>Ajouter</span>
               <input type="file" multiple onchange="processFiles(this.files)" class="hidden"/>
             </label>
@@ -330,56 +386,69 @@ function render() {
 
         <div class="flex overflow-x-auto pb-2 gap-2 no-scrollbar">
           <button onclick="state.activeCategory='Tous';render()"
-            class="px-4 py-2 rounded-full text-sm transition focus-ring whitespace-nowrap ${state.activeCategory==='Tous' ? 'bg-teal text-white shadow-sm' : 'bg-card border border-line text-inksoft'}">Tous</button>
+            class="px-4 py-2 rounded-full text-sm transition focus-ring whitespace-nowrap ${state.activeCategory==='Tous' ? 'bg-teal text-white shadow-sm' : 'bg-card border border-line text-inksoft dark:bg-dark-card dark:border-dark-line dark:text-dark-soft'}">
+            <i class="fa-solid fa-layer-group mr-1"></i> Tous
+          </button>
           ${CONFIG.defaultCategories.map(cat => `
             <button onclick="state.activeCategory='${esc(cat)}';render()"
-              class="px-4 py-2 rounded-full text-sm transition focus-ring whitespace-nowrap ${state.activeCategory===cat ? 'bg-teal text-white shadow-sm' : 'bg-card border border-line text-inksoft'}">${esc(cat)}</button>
+              class="px-4 py-2 rounded-full text-sm transition focus-ring whitespace-nowrap ${state.activeCategory===cat ? 'bg-teal text-white shadow-sm' : 'bg-card border border-line text-inksoft dark:bg-dark-card dark:border-dark-line dark:text-dark-soft'}">${esc(cat)}</button>
           `).join('')}
         </div>
       </div>
 
       ${state.isAdmin && state.isDragging ? `
-        <div class="drop-zone drag-over rounded-xl p-12 mb-8 text-center flex flex-col items-center justify-center bg-teal-light/50 border-teal">
-          <svg class="w-12 h-12 text-teal mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+        <div class="drop-zone drag-over rounded-xl p-12 mb-8 text-center flex flex-col items-center justify-center bg-teal-light/50 border-teal dark:bg-teal-dark/20">
+          <i class="fa-solid fa-cloud-arrow-up text-5xl text-teal mb-3"></i>
           <p class="text-lg font-semibold text-teal">Relâchez pour uploader</p>
         </div>
       ` : ''}
 
       ${state.uploading ? `
-        <div class="mb-6 p-4 bg-card border border-line rounded-lg rise shadow-sm">
+        <div class="mb-6 p-4 bg-card border border-line rounded-lg rise shadow-sm dark:bg-dark-card dark:border-dark-line">
           <div class="flex justify-between text-sm mb-2">
-            <span class="font-medium text-teal">Traitement en cours...</span>
-            <span class="text-inksoft">${state.uploadStats.current} / ${state.uploadStats.total}</span>
+            <span class="font-medium text-teal"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Traitement en cours...</span>
+            <span class="text-inksoft dark:text-dark-soft">${state.uploadStats.current} / ${state.uploadStats.total}</span>
           </div>
-          <div class="w-full bg-gray-200 rounded-full h-2">
+          <div class="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
             <div class="bg-teal h-2 rounded-full transition-all duration-300" style="width: ${(state.uploadStats.current / state.uploadStats.total) * 100}%"></div>
           </div>
         </div>
       ` : ''}
 
-      ${state.loading ? `<div class="flex justify-center py-20"><svg class="w-8 h-8 text-teal spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></div>` : 
-        filteredDocs.length === 0 ? `<div class="text-center py-20 text-inksoft bg-card rounded-xl border border-line border-dashed">Aucun document trouvé</div>` :
+      ${state.loading ? `<div class="flex justify-center py-20"><i class="fa-solid fa-circle-notch fa-spin text-4xl text-teal"></i></div>` : 
+        filteredDocs.length === 0 ? `<div class="text-center py-20 text-inksoft dark:text-dark-soft bg-card rounded-xl border border-line border-dashed dark:bg-dark-card dark:border-dark-line">
+          <i class="fa-regular fa-folder-open text-4xl mb-3 opacity-50"></i>
+          <p>Aucun document trouvé</p>
+        </div>` :
         `<div class="grid gap-3">
           ${filteredDocs.map(doc => {
             const ext = extOf(doc.name);
             const color = extColor(ext);
             const rawUrl = `${RAW_BASE}/${doc.path}`;
             
+            let iconClass = "fa-file";
+            if (['PDF'].includes(ext)) iconClass = "fa-file-pdf";
+            else if (['DOC','DOCX','ODT'].includes(ext)) iconClass = "fa-file-word";
+            else if (['XLS','XLSX'].includes(ext)) iconClass = "fa-file-excel";
+            else if (['PPT','PPTX','ODP'].includes(ext)) iconClass = "fa-file-powerpoint";
+            else if (['JPG','PNG','JPEG'].includes(ext)) iconClass = "fa-file-image";
+            else if (['ZIP','RAR'].includes(ext)) iconClass = "fa-file-zipper";
+
             return `
-              <div class="bg-card border border-line rounded-xl p-4 hover:shadow-md transition rise group flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div class="flex-1 min-w-0 flex items-start gap-3">
+              <div class="bg-card border border-line rounded-xl p-4 hover:shadow-md transition rise group flex flex-col sm:flex-row sm:items-center justify-between gap-4 dark:bg-dark-card dark:border-dark-line">
+                <div class="flex-1 min-w-0 flex items-start gap-4">
                   <div class="shrink-0 mt-1">
-                    <span class="flex items-center justify-center w-10 h-10 rounded-lg bg-${color}-light text-${color} font-bold text-xs font-mono">
-                      ${esc(ext)}
-                    </span>
+                    <div class="flex items-center justify-center w-12 h-12 rounded-lg bg-${color}-light text-${color} text-xl dark:bg-opacity-20">
+                      <i class="fa-solid ${iconClass}"></i>
+                    </div>
                   </div>
                   <div class="min-w-0">
-                    <h3 class="font-semibold text-base text-ink truncate pr-4" title="${esc(doc.name)}">${esc(doc.name)}</h3>
-                    <div class="flex items-center gap-2 mt-1 text-xs text-inksoft tick">
-                      <span class="px-2 py-0.5 bg-gray-100 rounded text-gray-600">${esc(doc.category)}</span>
-                      <span>${humanSize(doc.size)}</span>
+                    <h3 class="font-semibold text-base text-ink truncate pr-4 dark:text-dark-text" title="${esc(doc.name)}">${esc(doc.name)}</h3>
+                    <div class="flex items-center gap-2 mt-1 text-xs text-inksoft dark:text-dark-soft tick">
+                      <span class="px-2 py-0.5 bg-gray-100 rounded text-gray-600 font-medium dark:bg-gray-700 dark:text-gray-300">${esc(doc.category)}</span>
+                      <span><i class="fa-solid fa-hard-drive mr-1"></i>${humanSize(doc.size)}</span>
                       <span>•</span>
-                      <span>${formatDate(doc.date)}</span>
+                      <span><i class="fa-regular fa-calendar mr-1"></i>${formatDate(doc.date)}</span>
                     </div>
                   </div>
                 </div>
@@ -387,13 +456,13 @@ function render() {
                 <div class="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                   <button onclick="forceDownload('${rawUrl}', '${esc(doc.name).replace(/'/g, "\\'")}')" 
                     class="btn-touch px-4 py-2 bg-teal text-white rounded-lg hover:bg-teal-dark transition focus-ring text-sm font-medium shadow-sm flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                    Télécharger
+                    <i class="fa-solid fa-download"></i>
+                    <span class="hidden sm:inline">Télécharger</span>
                   </button>
                   
                   ${state.isAdmin ? `
-                    <button onclick="deleteDocument('${doc.id}')" class="btn-touch px-3 py-2 bg-rust-light text-rust rounded-lg hover:bg-rust hover:text-white transition opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    <button onclick="deleteDocument('${doc.id}')" class="btn-touch px-3 py-2 bg-rust-light text-rust rounded-lg hover:bg-rust hover:text-white transition opacity-100 sm:opacity-0 sm:group-hover:opacity-100 dark:bg-opacity-20" title="Supprimer">
+                      <i class="fa-solid fa-trash-can"></i>
                     </button>
                   ` : ''}
                 </div>
@@ -406,20 +475,28 @@ function render() {
 
     ${state.showLogin ? `
       <div class="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm" onclick="if(event.target===this){state.showLogin=false;render()}">
-        <div class="bg-card rounded-xl shadow-2xl max-w-md w-full p-6 rise border border-line">
-          <h2 class="font-display text-xl font-bold mb-2">Connexion Admin</h2>
-          <p class="text-inksoft text-sm mb-4">Entrez votre Token GitHub (scope repo)</p>
-          <input type="password" id="gh-token" placeholder="ghp_..." class="w-full px-4 py-3 border border-line rounded-lg mb-4 focus-ring font-mono text-sm bg-paper" />
+        <div class="bg-card rounded-xl shadow-2xl max-w-md w-full p-6 rise border border-line dark:bg-dark-card dark:border-dark-line">
+          <div class="text-center mb-4">
+            <div class="w-12 h-12 bg-teal-light text-teal rounded-full flex items-center justify-center mx-auto mb-2 text-xl dark:bg-opacity-20">
+              <i class="fa-solid fa-lock"></i>
+            </div>
+            <h2 class="font-display text-xl font-bold dark:text-dark-text">Connexion Admin</h2>
+          </div>
+          <p class="text-inksoft text-sm mb-4 text-center dark:text-dark-soft">Entrez votre Token GitHub (scope repo)</p>
+          <div class="relative mb-4">
+            <i class="fa-solid fa-key absolute left-4 top-1/2 -translate-y-1/2 text-inksoft dark:text-dark-soft"></i>
+            <input type="password" id="gh-token" placeholder="ghp_..." class="w-full pl-10 pr-4 py-3 border border-line rounded-lg focus-ring font-mono text-sm bg-paper dark:bg-gray-800 dark:border-dark-line dark:text-dark-text" />
+          </div>
           <div class="flex gap-3">
-            <button onclick="state.showLogin=false;render()" class="flex-1 btn-touch px-4 py-3 border border-line rounded-lg hover:bg-paper transition text-sm font-medium">Annuler</button>
+            <button onclick="state.showLogin=false;render()" class="flex-1 btn-touch px-4 py-3 border border-line rounded-lg hover:bg-paper transition text-sm font-medium dark:border-dark-line dark:hover:bg-gray-700 dark:text-dark-text">Annuler</button>
             <button onclick="handleLogin(document.getElementById('gh-token').value)" class="flex-1 btn-touch px-4 py-3 bg-teal text-white rounded-lg hover:bg-teal-dark transition text-sm font-medium shadow-sm">Connexion</button>
           </div>
         </div>
       </div>
     ` : ''}
     
-    <footer class="border-t border-line mt-auto py-6 text-center text-inksoft text-xs bg-card">
-      <p>Stockage sécurisé via GitHub • ${esc(CONFIG.githubOwner)}/${esc(CONFIG.githubRepo)}</p>
+    <footer class="border-t border-line mt-auto py-6 text-center text-inksoft text-xs bg-card dark:bg-dark-card dark:border-dark-line dark:text-dark-soft">
+      <p><i class="fa-brands fa-github mr-1"></i> Stockage via GitHub • ${esc(CONFIG.githubOwner)}/${esc(CONFIG.githubRepo)}</p>
     </footer>
   `;
 }
