@@ -12,23 +12,16 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
-    darkMode: 'class', // Activation du mode sombre via classe CSS
+    darkMode: 'class',
     theme: {
       extend: {
         colors: {
-          // Couleurs Mode Clair
           paper: '#F7F4EC', ink: '#1E2A3A', inksoft: '#586274', line: '#DAD3C0', card: '#FFFEFB',
           teal: { DEFAULT: '#2F6F5E', dark: '#234F43', light: '#E4EEE9' },
           gold: { DEFAULT: '#9C6B2B', light: '#F3E7D3' },
           rust: { DEFAULT: '#A8432E', light: '#F5E1DB' },
-          
-          // Couleurs Mode Sombre (Personnalisées)
           dark: {
-            bg: '#121212',       // Fond très sombre
-            card: '#1E1E1E',     // Cartes légèrement plus claires
-            line: '#333333',     // Bordures subtiles
-            text: '#E0E0E0',     // Texte principal clair
-            soft: '#A0A0A0'      // Texte secondaire
+            bg: '#121212', card: '#1E1E1E', line: '#333333', text: '#E0E0E0', soft: '#A0A0A0'
           }
         },
         fontFamily: {
@@ -36,34 +29,95 @@
           sans: ['"IBM Plex Sans"', 'sans-serif'],
           mono: ['"IBM Plex Mono"', 'monospace'],
         },
+        animation: {
+          'fade-in': 'fadeIn 0.5s ease-out forwards',
+          'slide-up': 'slideUp 0.5s ease-out forwards',
+          'bounce-slow': 'bounce 2s infinite',
+        },
+        keyframes: {
+          fadeIn: {
+            '0%': { opacity: '0' },
+            '100%': { opacity: '1' },
+          },
+          slideUp: {
+            '0%': { opacity: '0', transform: 'translateY(20px)' },
+            '100%': { opacity: '1', transform: 'translateY(0)' },
+          }
+        }
       },
     },
   };
 </script>
 <style>
-  /* Transition douce entre les thèmes */
-  body, div, header, footer, button, input {
-    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  /* Transitions globales douces */
+  body, div, header, footer, button, input, a {
+    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
   body { background-color: #F7F4EC; -webkit-tap-highlight-color: transparent; }
   ::selection { background: #2F6F5E; color: #FFFEFB; }
-  .tick { font-variant-numeric: tabular-nums; }
-  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-  .rise { animation: rise .35s ease both; }
+  
+  /* Effet de levitation au survol */
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Animation d'entrée en cascade pour les listes */
+  .stagger-item {
+    opacity: 0;
+    animation: slideUp 0.4s ease-out forwards;
+  }
+  
+  /* Délais pour l'effet cascade */
+  .stagger-item:nth-child(1) { animation-delay: 0.05s; }
+  .stagger-item:nth-child(2) { animation-delay: 0.1s; }
+  .stagger-item:nth-child(3) { animation-delay: 0.15s; }
+  .stagger-item:nth-child(4) { animation-delay: 0.2s; }
+  .stagger-item:nth-child(5) { animation-delay: 0.25s; }
+  .stagger-item:nth-child(6) { animation-delay: 0.3s; }
+  .stagger-item:nth-child(7) { animation-delay: 0.35s; }
+  .stagger-item:nth-child(8) { animation-delay: 0.4s; }
+  .stagger-item:nth-child(9) { animation-delay: 0.45s; }
+  .stagger-item:nth-child(10) { animation-delay: 0.5s; }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   .spin { animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   
   .focus-ring:focus-visible { outline: 2px solid #2F6F5E; outline-offset: 2px; }
-  input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid #2F6F5E; outline-offset: 1px; }
   
-  .drop-zone { border: 2px dashed #DAD3C0; transition: all 0.2s ease; }
-  .drop-zone.drag-over { border-color: #2F6F5E; background-color: #E4EEE9; transform: scale(1.01); }
+  .drop-zone { 
+    border: 2px dashed #DAD3C0; 
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+  }
+  .drop-zone.drag-over { 
+    border-color: #2F6F5E; 
+    background-color: #E4EEE9; 
+    transform: scale(1.02); 
+    box-shadow: 0 0 20px rgba(47, 111, 94, 0.2);
+  }
   
   .btn-touch { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  
+  /* Scrollbar personnalisée */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #DAD3C0; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #2F6F5E; }
+  .dark ::-webkit-scrollbar-thumb { background: #333; }
+  .dark ::-webkit-scrollbar-thumb:hover { background: #2F6F5E; }
 </style>
 </head>
-<body class="font-sans text-ink min-h-screen flex flex-col dark:bg-dark-bg dark:text-dark-text">
+<body class="font-sans text-ink min-h-screen flex flex-col dark:bg-dark-bg dark:text-dark-text overflow-x-hidden">
 
 <div id="app" class="flex-1 flex flex-col"></div>
 
@@ -91,10 +145,9 @@ function toggleTheme() {
     html.classList.add('dark');
     localStorage.setItem('theme', 'dark');
   }
-  render(); // Re-render pour mettre à jour l'icône
+  render();
 }
 
-// Initialisation immédiate
 initTheme();
 
 /* ============================================================
@@ -158,7 +211,7 @@ function bufferToBase64(buffer) {
 }
 
 /* ============================================================
-   TÉLÉCHARGEMENT UNIVERSEL (iOS/Android/PC)
+   TÉLÉCHARGEMENT UNIVERSEL
    ============================================================ */
 async function forceDownload(url, filename) {
   try {
@@ -178,7 +231,7 @@ async function forceDownload(url, filename) {
     window.URL.revokeObjectURL(blobUrl);
     document.body.removeChild(a);
   } catch (error) {
-    console.error('Download failed, falling back to direct link:', error);
+    console.error('Download failed:', error);
     window.open(url, '_blank');
   }
 }
@@ -229,7 +282,7 @@ async function deleteFileFromGitHub(path, sha) {
 }
 
 /* ============================================================
-   LOGIQUE MÉTIER & UPLOAD MASSIF
+   LOGIQUE MÉTIER
    ============================================================ */
 async function loadDocuments() {
   state.loading = true; state.error = null; render();
@@ -282,7 +335,7 @@ async function processFiles(files) {
   if (state.documents.length > 0) await saveManifest(state.documents);
   
   if (state.uploadStats.errors.length > 0) {
-    state.error = `${state.uploadStats.errors.length} échecs. Ex: ${state.uploadStats.errors[0]}`;
+    state.error = `${state.uploadStats.errors.length} échecs.`;
   }
 
   state.uploading = false;
@@ -316,7 +369,7 @@ function handleLogout() {
 }
 
 /* ============================================================
-   GESTION DRAG & DROP
+   DRAG & DROP
    ============================================================ */
 function handleDragOver(e) { e.preventDefault(); state.isDragging = true; render(); }
 function handleDragLeave(e) { e.preventDefault(); state.isDragging = false; render(); }
@@ -327,7 +380,7 @@ function handleDrop(e) {
 }
 
 /* ============================================================
-   RENDU UI
+   RENDU UI ANIMÉ
    ============================================================ */
 function render() {
   const isDark = document.documentElement.classList.contains('dark');
@@ -338,20 +391,23 @@ function render() {
   });
 
   root.innerHTML = `
-    <header class="bg-card border-b border-line sticky top-0 z-30 shadow-sm dark:bg-dark-card dark:border-dark-line dark:text-dark-text">
+    <header class="bg-card/90 backdrop-blur-md border-b border-line sticky top-0 z-30 shadow-sm dark:bg-dark-card/90 dark:border-dark-line dark:text-dark-text animate-fade-in">
       <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-        <div>
-          <h1 class="font-display text-xl sm:text-3xl font-bold text-ink dark:text-dark-text leading-tight">
-            <i class="fa-solid fa-folder-open mr-2 text-teal"></i>${esc(CONFIG.classTitle)}
-          </h1>
-          <p class="text-inksoft dark:text-dark-soft text-xs sm:text-sm">${esc(CONFIG.className)}</p>
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-teal rounded-lg flex items-center justify-center text-white shadow-lg shadow-teal/30">
+            <i class="fa-solid fa-folder-open text-xl"></i>
+          </div>
+          <div>
+            <h1 class="font-display text-xl sm:text-2xl font-bold text-ink dark:text-dark-text leading-tight">${esc(CONFIG.classTitle)}</h1>
+            <p class="text-inksoft dark:text-dark-soft text-xs sm:text-sm font-medium">${esc(CONFIG.className)}</p>
+          </div>
         </div>
         <div class="flex items-center gap-2">
-          <button onclick="toggleTheme()" class="btn-touch px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition focus-ring text-ink dark:text-dark-text" title="Changer le thème">
-            <i class="fa-solid ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
+          <button onclick="toggleTheme()" class="btn-touch w-10 h-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition focus-ring text-ink dark:text-dark-text relative overflow-hidden group" title="Changer le thème">
+            <i class="fa-solid ${isDark ? 'fa-sun' : 'fa-moon'} absolute inset-0 flex items-center justify-center transition-transform duration-500 group-hover:rotate-180"></i>
           </button>
           <button onclick="${state.isAdmin ? 'handleLogout()' : 'state.showLogin=true;render()'}" 
-            class="btn-touch px-4 py-2 rounded-lg transition focus-ring text-sm font-medium ${state.isAdmin ? 'bg-rust text-white' : 'bg-teal text-white'}">
+            class="btn-touch px-4 py-2 rounded-lg transition-all duration-300 focus-ring text-sm font-medium shadow-md hover:shadow-lg hover:-translate-y-0.5 ${state.isAdmin ? 'bg-rust text-white hover:bg-rust-dark' : 'bg-teal text-white hover:bg-teal-dark'}">
             <i class="fa-solid ${state.isAdmin ? 'fa-right-from-bracket' : 'fa-user-shield'} mr-2"></i>
             ${state.isAdmin ? 'Quitter' : 'Admin'}
           </button>
@@ -359,144 +415,161 @@ function render() {
       </div>
     </header>
 
-    <main class="flex-1 max-w-7xl mx-auto px-4 py-6 w-full" 
+    <main class="flex-1 max-w-7xl mx-auto px-4 py-8 w-full animate-slide-up" 
       ondragover="handleDragOver(event)" 
       ondragleave="handleDragLeave(event)" 
       ondrop="handleDrop(event)">
       
-      ${state.error ? `<div class="mb-6 p-4 bg-rust-light border border-rust/30 text-rust rounded-lg text-sm"><i class="fa-solid fa-circle-exclamation mr-2"></i>${esc(state.error)}</div>` : ''}
+      ${state.error ? `<div class="mb-6 p-4 bg-rust-light border border-rust/30 text-rust rounded-xl text-sm shadow-sm animate-slide-up"><i class="fa-solid fa-circle-exclamation mr-2"></i>${esc(state.error)}</div>` : ''}
 
-      <div class="mb-6 space-y-4">
-        <div class="flex flex-col sm:flex-row gap-3">
-          <div class="relative flex-1">
-            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-inksoft dark:text-dark-soft"></i>
+      <div class="mb-8 space-y-6">
+        <div class="flex flex-col sm:flex-row gap-4">
+          <div class="relative flex-1 group">
+            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-inksoft dark:text-dark-soft transition-colors group-focus-within:text-teal"></i>
             <input type="text" placeholder="Rechercher un document..." value="${esc(state.search)}"
               oninput="state.search=this.value;render()"
-              class="w-full pl-10 pr-4 py-3 border border-line rounded-lg bg-card focus-ring text-sm sm:text-base dark:bg-dark-card dark:border-dark-line dark:text-dark-text dark:placeholder-gray-500" />
+              class="w-full pl-12 pr-4 py-3.5 border border-line rounded-xl bg-card focus-ring text-sm sm:text-base dark:bg-dark-card dark:border-dark-line dark:text-dark-text dark:placeholder-gray-500 shadow-sm hover:shadow-md transition-all duration-300" />
           </div>
           
           ${state.isAdmin ? `
-            <label class="btn-touch px-5 py-3 bg-teal text-white rounded-lg hover:bg-teal-dark transition cursor-pointer focus-ring inline-flex items-center justify-center gap-2 text-sm font-medium whitespace-nowrap shadow-sm">
-              <i class="fa-solid fa-cloud-arrow-up"></i>
-              <span>Ajouter</span>
+            <label class="btn-touch px-6 py-3.5 bg-teal text-white rounded-xl hover:bg-teal-dark transition-all duration-300 cursor-pointer focus-ring inline-flex items-center justify-center gap-2 text-sm font-medium whitespace-nowrap shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95">
+              <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
+              <span>Ajouter des fichiers</span>
               <input type="file" multiple onchange="processFiles(this.files)" class="hidden"/>
             </label>
           ` : ''}
         </div>
 
-        <div class="flex overflow-x-auto pb-2 gap-2 no-scrollbar">
+        <div class="flex overflow-x-auto pb-2 gap-2 no-scrollbar mask-linear-fade">
           <button onclick="state.activeCategory='Tous';render()"
-            class="px-4 py-2 rounded-full text-sm transition focus-ring whitespace-nowrap ${state.activeCategory==='Tous' ? 'bg-teal text-white shadow-sm' : 'bg-card border border-line text-inksoft dark:bg-dark-card dark:border-dark-line dark:text-dark-soft'}">
-            <i class="fa-solid fa-layer-group mr-1"></i> Tous
+            class="px-5 py-2.5 rounded-full text-sm transition-all duration-300 focus-ring whitespace-nowrap shadow-sm hover:shadow-md hover:-translate-y-0.5 ${state.activeCategory==='Tous' ? 'bg-teal text-white font-semibold' : 'bg-card border border-line text-inksoft dark:bg-dark-card dark:border-dark-line dark:text-dark-soft'}">
+            <i class="fa-solid fa-layer-group mr-1.5"></i> Tous
           </button>
           ${CONFIG.defaultCategories.map(cat => `
             <button onclick="state.activeCategory='${esc(cat)}';render()"
-              class="px-4 py-2 rounded-full text-sm transition focus-ring whitespace-nowrap ${state.activeCategory===cat ? 'bg-teal text-white shadow-sm' : 'bg-card border border-line text-inksoft dark:bg-dark-card dark:border-dark-line dark:text-dark-soft'}">${esc(cat)}</button>
+              class="px-5 py-2.5 rounded-full text-sm transition-all duration-300 focus-ring whitespace-nowrap shadow-sm hover:shadow-md hover:-translate-y-0.5 ${state.activeCategory===cat ? 'bg-teal text-white font-semibold' : 'bg-card border border-line text-inksoft dark:bg-dark-card dark:border-dark-line dark:text-dark-soft'}">${esc(cat)}</button>
           `).join('')}
         </div>
       </div>
 
       ${state.isAdmin && state.isDragging ? `
-        <div class="drop-zone drag-over rounded-xl p-12 mb-8 text-center flex flex-col items-center justify-center bg-teal-light/50 border-teal dark:bg-teal-dark/20">
-          <i class="fa-solid fa-cloud-arrow-up text-5xl text-teal mb-3"></i>
-          <p class="text-lg font-semibold text-teal">Relâchez pour uploader</p>
+        <div class="drop-zone drag-over rounded-2xl p-16 mb-8 text-center flex flex-col items-center justify-center bg-teal-light/30 border-teal border-2 dark:bg-teal-dark/20 animate-fade-in">
+          <div class="w-20 h-20 bg-teal/10 rounded-full flex items-center justify-center mb-4 animate-bounce-slow">
+            <i class="fa-solid fa-cloud-arrow-up text-4xl text-teal"></i>
+          </div>
+          <p class="text-xl font-bold text-teal mb-1">Relâchez pour uploader</p>
+          <p class="text-sm text-inksoft dark:text-dark-soft">${state.uploadStats.total} fichiers détectés</p>
         </div>
       ` : ''}
 
       ${state.uploading ? `
-        <div class="mb-6 p-4 bg-card border border-line rounded-lg rise shadow-sm dark:bg-dark-card dark:border-dark-line">
-          <div class="flex justify-between text-sm mb-2">
-            <span class="font-medium text-teal"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Traitement en cours...</span>
-            <span class="text-inksoft dark:text-dark-soft">${state.uploadStats.current} / ${state.uploadStats.total}</span>
+        <div class="mb-8 p-6 bg-card border border-line rounded-2xl shadow-lg rise dark:bg-dark-card dark:border-dark-line animate-slide-up">
+          <div class="flex justify-between items-center mb-3">
+            <span class="font-bold text-teal flex items-center gap-2"><i class="fa-solid fa-spinner fa-spin"></i> Traitement en cours...</span>
+            <span class="text-inksoft dark:text-dark-soft font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-xs">${state.uploadStats.current} / ${state.uploadStats.total}</span>
           </div>
-          <div class="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
-            <div class="bg-teal h-2 rounded-full transition-all duration-300" style="width: ${(state.uploadStats.current / state.uploadStats.total) * 100}%"></div>
+          <div class="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+            <div class="bg-gradient-to-r from-teal to-teal-dark h-3 rounded-full transition-all duration-500 ease-out relative" style="width: ${(state.uploadStats.current / state.uploadStats.total) * 100}%">
+              <div class="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]"></div>
+            </div>
           </div>
         </div>
       ` : ''}
 
-      ${state.loading ? `<div class="flex justify-center py-20"><i class="fa-solid fa-circle-notch fa-spin text-4xl text-teal"></i></div>` : 
-        filteredDocs.length === 0 ? `<div class="text-center py-20 text-inksoft dark:text-dark-soft bg-card rounded-xl border border-line border-dashed dark:bg-dark-card dark:border-dark-line">
-          <i class="fa-regular fa-folder-open text-4xl mb-3 opacity-50"></i>
-          <p>Aucun document trouvé</p>
-        </div>` :
-        `<div class="grid gap-3">
-          ${filteredDocs.map(doc => {
-            const ext = extOf(doc.name);
-            const color = extColor(ext);
-            const rawUrl = `${RAW_BASE}/${doc.path}`;
-            
-            let iconClass = "fa-file";
-            if (['PDF'].includes(ext)) iconClass = "fa-file-pdf";
-            else if (['DOC','DOCX','ODT'].includes(ext)) iconClass = "fa-file-word";
-            else if (['XLS','XLSX'].includes(ext)) iconClass = "fa-file-excel";
-            else if (['PPT','PPTX','ODP'].includes(ext)) iconClass = "fa-file-powerpoint";
-            else if (['JPG','PNG','JPEG'].includes(ext)) iconClass = "fa-file-image";
-            else if (['ZIP','RAR'].includes(ext)) iconClass = "fa-file-zipper";
+      ${state.loading ? `
+        <div class="flex flex-col justify-center items-center py-32 animate-pulse">
+          <div class="w-16 h-16 border-4 border-teal/30 border-t-teal rounded-full spin mb-4"></div>
+          <p class="text-inksoft dark:text-dark-soft font-medium">Chargement des documents...</p>
+        </div>` : 
+        filteredDocs.length === 0 ? `
+          <div class="text-center py-24 text-inksoft dark:text-dark-soft bg-card rounded-2xl border-2 border-dashed border-line dark:bg-dark-card dark:border-dark-line animate-fade-in">
+            <div class="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+              <i class="fa-regular fa-folder-open text-3xl opacity-50"></i>
+            </div>
+            <p class="text-lg font-medium">Aucun document trouvé</p>
+            <p class="text-sm opacity-70 mt-1">Essayez une autre catégorie ou recherche</p>
+          </div>` :
+          `<div class="grid gap-4">
+            ${filteredDocs.map((doc, index) => {
+              const ext = extOf(doc.name);
+              const color = extColor(ext);
+              const rawUrl = `${RAW_BASE}/${doc.path}`;
+              
+              let iconClass = "fa-file";
+              if (['PDF'].includes(ext)) iconClass = "fa-file-pdf";
+              else if (['DOC','DOCX','ODT'].includes(ext)) iconClass = "fa-file-word";
+              else if (['XLS','XLSX'].includes(ext)) iconClass = "fa-file-excel";
+              else if (['PPT','PPTX','ODP'].includes(ext)) iconClass = "fa-file-powerpoint";
+              else if (['JPG','PNG','JPEG'].includes(ext)) iconClass = "fa-file-image";
+              else if (['ZIP','RAR'].includes(ext)) iconClass = "fa-file-zipper";
 
-            return `
-              <div class="bg-card border border-line rounded-xl p-4 hover:shadow-md transition rise group flex flex-col sm:flex-row sm:items-center justify-between gap-4 dark:bg-dark-card dark:border-dark-line">
-                <div class="flex-1 min-w-0 flex items-start gap-4">
-                  <div class="shrink-0 mt-1">
-                    <div class="flex items-center justify-center w-12 h-12 rounded-lg bg-${color}-light text-${color} text-xl dark:bg-opacity-20">
-                      <i class="fa-solid ${iconClass}"></i>
+              return `
+                <div class="stagger-item bg-card border border-line rounded-2xl p-5 hover-lift group flex flex-col sm:flex-row sm:items-center justify-between gap-4 dark:bg-dark-card dark:border-dark-line cursor-default" style="animation-delay: ${index * 0.05}s">
+                  <div class="flex-1 min-w-0 flex items-start gap-5">
+                    <div class="shrink-0 mt-1 relative">
+                      <div class="flex items-center justify-center w-14 h-14 rounded-xl bg-${color}-light text-${color} text-2xl shadow-sm dark:bg-opacity-20 transition-transform duration-300 group-hover:scale-110">
+                        <i class="fa-solid ${iconClass}"></i>
+                      </div>
+                    </div>
+                    <div class="min-w-0 pt-1">
+                      <h3 class="font-bold text-lg text-ink truncate pr-4 dark:text-dark-text mb-1" title="${esc(doc.name)}">${esc(doc.name)}</h3>
+                      <div class="flex flex-wrap items-center gap-3 text-xs text-inksoft dark:text-dark-soft font-medium">
+                        <span class="px-2.5 py-1 bg-gray-100 rounded-md text-gray-600 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">${esc(doc.category)}</span>
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-hard-drive text-[10px]"></i>${humanSize(doc.size)}</span>
+                        <span class="w-1 h-1 bg-gray-300 rounded-full"></span>
+                        <span class="flex items-center gap-1.5"><i class="fa-regular fa-calendar text-[10px]"></i>${formatDate(doc.date)}</span>
+                      </div>
                     </div>
                   </div>
-                  <div class="min-w-0">
-                    <h3 class="font-semibold text-base text-ink truncate pr-4 dark:text-dark-text" title="${esc(doc.name)}">${esc(doc.name)}</h3>
-                    <div class="flex items-center gap-2 mt-1 text-xs text-inksoft dark:text-dark-soft tick">
-                      <span class="px-2 py-0.5 bg-gray-100 rounded text-gray-600 font-medium dark:bg-gray-700 dark:text-gray-300">${esc(doc.category)}</span>
-                      <span><i class="fa-solid fa-hard-drive mr-1"></i>${humanSize(doc.size)}</span>
-                      <span>•</span>
-                      <span><i class="fa-regular fa-calendar mr-1"></i>${formatDate(doc.date)}</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div class="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                  <button onclick="forceDownload('${rawUrl}', '${esc(doc.name).replace(/'/g, "\\'")}')" 
-                    class="btn-touch px-4 py-2 bg-teal text-white rounded-lg hover:bg-teal-dark transition focus-ring text-sm font-medium shadow-sm flex items-center gap-2">
-                    <i class="fa-solid fa-download"></i>
-                    <span class="hidden sm:inline">Télécharger</span>
-                  </button>
                   
-                  ${state.isAdmin ? `
-                    <button onclick="deleteDocument('${doc.id}')" class="btn-touch px-3 py-2 bg-rust-light text-rust rounded-lg hover:bg-rust hover:text-white transition opacity-100 sm:opacity-0 sm:group-hover:opacity-100 dark:bg-opacity-20" title="Supprimer">
-                      <i class="fa-solid fa-trash-can"></i>
+                  <div class="flex items-center gap-3 shrink-0 self-end sm:self-auto mt-2 sm:mt-0">
+                    <button onclick="forceDownload('${rawUrl}', '${esc(doc.name).replace(/'/g, "\\'")}')" 
+                      class="btn-touch px-5 py-2.5 bg-teal text-white rounded-xl hover:bg-teal-dark transition-all duration-300 focus-ring text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95 flex items-center gap-2.5">
+                      <i class="fa-solid fa-download"></i>
+                      <span>Télécharger</span>
                     </button>
-                  ` : ''}
+                    
+                    ${state.isAdmin ? `
+                      <button onclick="deleteDocument('${doc.id}')" class="btn-touch w-10 h-10 bg-rust-light text-rust rounded-xl hover:bg-rust hover:text-white transition-all duration-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:hover:shadow-lg dark:bg-opacity-20" title="Supprimer">
+                        <i class="fa-solid fa-trash-can"></i>
+                      </button>
+                    ` : ''}
+                  </div>
                 </div>
-              </div>
-            `;
-          }).join('')}
-        </div>`
+              `;
+            }).join('')}
+          </div>`
       }
     </main>
 
     ${state.showLogin ? `
-      <div class="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm" onclick="if(event.target===this){state.showLogin=false;render()}">
-        <div class="bg-card rounded-xl shadow-2xl max-w-md w-full p-6 rise border border-line dark:bg-dark-card dark:border-dark-line">
-          <div class="text-center mb-4">
-            <div class="w-12 h-12 bg-teal-light text-teal rounded-full flex items-center justify-center mx-auto mb-2 text-xl dark:bg-opacity-20">
+      <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in" onclick="if(event.target===this){state.showLogin=false;render()}">
+        <div class="bg-card rounded-2xl shadow-2xl max-w-md w-full p-8 rise border border-line dark:bg-dark-card dark:border-dark-line animate-slide-up transform transition-all">
+          <div class="text-center mb-6">
+            <div class="w-16 h-16 bg-teal-light text-teal rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-lg shadow-teal/20 dark:bg-opacity-20 rotate-3 hover:rotate-6 transition-transform">
               <i class="fa-solid fa-lock"></i>
             </div>
-            <h2 class="font-display text-xl font-bold dark:text-dark-text">Connexion Admin</h2>
+            <h2 class="font-display text-2xl font-bold dark:text-dark-text">Connexion Admin</h2>
+            <p class="text-inksoft text-sm mt-2 dark:text-dark-soft">Accès sécurisé au panneau de gestion</p>
           </div>
-          <p class="text-inksoft text-sm mb-4 text-center dark:text-dark-soft">Entrez votre Token GitHub (scope repo)</p>
-          <div class="relative mb-4">
-            <i class="fa-solid fa-key absolute left-4 top-1/2 -translate-y-1/2 text-inksoft dark:text-dark-soft"></i>
-            <input type="password" id="gh-token" placeholder="ghp_..." class="w-full pl-10 pr-4 py-3 border border-line rounded-lg focus-ring font-mono text-sm bg-paper dark:bg-gray-800 dark:border-dark-line dark:text-dark-text" />
+          <div class="relative mb-6 group">
+            <i class="fa-solid fa-key absolute left-4 top-1/2 -translate-y-1/2 text-inksoft dark:text-dark-soft transition-colors group-focus-within:text-teal"></i>
+            <input type="password" id="gh-token" placeholder="ghp_..." class="w-full pl-12 pr-4 py-4 border border-line rounded-xl focus-ring font-mono text-sm bg-paper dark:bg-gray-800 dark:border-dark-line dark:text-dark-text transition-all duration-300 hover:border-teal/50" />
           </div>
           <div class="flex gap-3">
-            <button onclick="state.showLogin=false;render()" class="flex-1 btn-touch px-4 py-3 border border-line rounded-lg hover:bg-paper transition text-sm font-medium dark:border-dark-line dark:hover:bg-gray-700 dark:text-dark-text">Annuler</button>
-            <button onclick="handleLogin(document.getElementById('gh-token').value)" class="flex-1 btn-touch px-4 py-3 bg-teal text-white rounded-lg hover:bg-teal-dark transition text-sm font-medium shadow-sm">Connexion</button>
+            <button onclick="state.showLogin=false;render()" class="flex-1 btn-touch px-4 py-3.5 border border-line rounded-xl hover:bg-paper transition-all duration-300 text-sm font-medium dark:border-dark-line dark:hover:bg-gray-700 dark:text-dark-text hover:shadow-md">Annuler</button>
+            <button onclick="handleLogin(document.getElementById('gh-token').value)" class="flex-1 btn-touch px-4 py-3.5 bg-teal text-white rounded-xl hover:bg-teal-dark transition-all duration-300 text-sm font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5">Connexion</button>
           </div>
         </div>
       </div>
     ` : ''}
     
-    <footer class="border-t border-line mt-auto py-6 text-center text-inksoft text-xs bg-card dark:bg-dark-card dark:border-dark-line dark:text-dark-soft">
-      <p><i class="fa-brands fa-github mr-1"></i> Stockage via GitHub • ${esc(CONFIG.githubOwner)}/${esc(CONFIG.githubRepo)}</p>
+    <footer class="border-t border-line mt-auto py-8 text-center text-inksoft text-xs bg-card dark:bg-dark-card dark:border-dark-line dark:text-dark-soft animate-fade-in">
+      <div class="flex items-center justify-center gap-2 mb-2">
+        <i class="fa-brands fa-github text-lg"></i>
+        <span class="font-semibold">Stockage via GitHub</span>
+      </div>
+      <p class="opacity-70">${esc(CONFIG.githubOwner)}/${esc(CONFIG.githubRepo)}</p>
     </footer>
   `;
 }
