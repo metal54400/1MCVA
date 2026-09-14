@@ -126,9 +126,10 @@ let state = {
   showLogin: false,
   loginError: null,
   isDragging: false,
-  // Nouveau state pour la pré-upload
+  // States pour Upload et Update
   pendingFiles: null,
-  selectedCategory: "Cours",
+  selectedCategories: [], // Tableau pour multi-catégories
+  updatingDocId: null, // ID du document en cours de mise à jour
 };
 
 const root = document.getElementById('app');
@@ -219,7 +220,7 @@ async function uploadFileToGitHub(file, path) {
   const buffer = await file.arrayBuffer();
   return apiRequest(`/${path}`, {
     method: 'PUT',
-    body: JSON.stringify({ message: `Upload: ${file.name}`, content: bufferToBase64(buffer) })
+    body: JSON.stringify({ message: `Upload/Update: ${file.name}`, content: bufferToBase64(buffer) })
   });
 }
 
@@ -238,22 +239,24 @@ async function loadDocuments() {
   finally { state.loading = false; render(); }
 }
 
-// Déclenche la modale au lieu d'uploader directement
+// Prépare l'upload (ouvre la modale)
 function prepareUpload(files) {
   if (!files || files.length === 0) return;
   state.pendingFiles = files;
-  state.selectedCategory = state.activeCategory === 'Tous' ? 'Cours' : state.activeCategory;
+  // Par défaut, on sélectionne la catégorie active si elle existe, sinon la première
+  const defaultCat = (state.activeCategory !== 'Tous') ? [state.activeCategory] : [CONFIG.defaultCategories[0]];
+  state.selectedCategories = defaultCat;
   render();
 }
 
-// Lance l'upload réel après validation dans la modale
+// Lance l'upload réel
 async function confirmUpload() {
   if (!state.pendingFiles) return;
   
   const files = state.pendingFiles;
-  const category = state.selectedCategory;
+  const categories = state.selectedCategories; // Tableau de catégories
   
-  state.pendingFiles = null; // Fermer la modale
+  state.pendingFiles = null;
   state.uploading = true;
   state.error = null;
   state.uploadStats = { current: 0, total: files.length, errors: [] };
@@ -278,7 +281,7 @@ async function confirmUpload() {
           path: filePath,
           size: file.size,
           type: file.type,
-          category: category, // Utilisation de la catégorie choisie
+          categories: categories, // Stockage en tableau
           date: new Date().toISOString(),
           uploadedBy: 'Admin'
         });
@@ -292,13 +295,58 @@ async function confirmUpload() {
   }
 
   if (state.documents.length > 0) await saveManifest(state.documents);
-  
-  if (state.uploadStats.errors.length > 0) {
-    state.error = `${state.uploadStats.errors.length} échecs.`;
-  }
+  if (state.uploadStats.errors.length > 0) state.error = `${state.uploadStats.errors.length} échecs.`;
 
   state.uploading = false;
   render();
+}
+
+// Prépare la mise à jour d'un fichier existant
+function prepareUpdate(docId) {
+  state.updatingDocId = docId;
+  render();
+}
+
+// Confirme la mise à jour (remplacement du fichier)
+async function confirmUpdateFile(newFile) {
+  if (!state.updatingDocId || !newFile) return;
+  
+  const docIndex = state.documents.findIndex(d => d.id === state.updatingDocId);
+  if (docIndex === -1) return;
+  
+  const doc = state.documents[docIndex];
+  
+  state.uploading = true;
+  state.error = null;
+  render();
+
+  try {
+    // On garde le même chemin ou on en crée un nouveau ? 
+    // Pour GitHub, il vaut mieux souvent créer un nouveau fichier et supprimer l'ancien pour éviter les conflits SHA,
+    // mais ici on va écraser le contenu à l'ancien chemin pour garder l'historique simple.
+    // Note: L'API GitHub PUT nécessite le SHA si le fichier existe déjà.
+    
+    // 1. Récupérer le SHA actuel
+    const currentData = await apiRequest(`/${doc.path}`);
+    
+    // 2. Uploader le nouveau contenu au même endroit
+    await uploadFileToGitHub(newFile, doc.path);
+    
+    // 3. Mettre à jour la taille dans le manifest
+    state.documents[docIndex].size = newFile.size;
+    state.documents[docIndex].date = new Date().toISOString(); // Mise à jour de la date
+    
+    await saveManifest(state.documents);
+    
+    state.updatingDocId = null;
+    state.uploading = false;
+    render();
+    
+  } catch (e) {
+    state.error = `Erreur update: ${e.message}`;
+    state.uploading = false;
+    render();
+  }
 }
 
 async function deleteDocument(docId) {
@@ -327,6 +375,15 @@ function handleLogout() {
   render();
 }
 
+function toggleCategory(cat) {
+  if (state.selectedCategories.includes(cat)) {
+    state.selectedCategories = state.selectedCategories.filter(c => c !== cat);
+  } else {
+    state.selectedCategories.push(cat);
+  }
+  render();
+}
+
 /* ============================================================
    DRAG & DROP
    ============================================================ */
@@ -344,7 +401,8 @@ function handleDrop(e) {
 function render() {
   const isDark = document.documentElement.classList.contains('dark');
   const filteredDocs = state.documents.filter(doc => {
-    const matchCat = state.activeCategory === 'Tous' || doc.category === state.activeCategory;
+    // Gestion multi-catégories : le doc s'affiche si l'une de ses catégories correspond au filtre
+    const matchCat = state.activeCategory === 'Tous' || (doc.categories && doc.categories.includes(state.activeCategory));
     const matchSearch = !state.search || doc.name.toLowerCase().includes(state.search.toLowerCase());
     return matchCat && matchSearch;
   });
@@ -458,6 +516,9 @@ function render() {
               else if (['JPG','PNG','JPEG'].includes(ext)) iconClass = "fa-file-image";
               else if (['ZIP','RAR'].includes(ext)) iconClass = "fa-file-zipper";
 
+              // Affichage des badges catégories
+              const cats = doc.categories || (doc.category ? [doc.category] : ['Autres']); // Retro-compatibilité
+
               return `
                 <div class="stagger-item bg-card border border-line rounded-2xl p-5 hover-lift group flex flex-col sm:flex-row sm:items-center justify-between gap-4 dark:bg-dark-card dark:border-dark-line" style="animation-delay: ${index * 0.05}s">
                   <div class="flex-1 min-w-0 flex items-start gap-5">
@@ -468,8 +529,10 @@ function render() {
                     </div>
                     <div class="min-w-0 pt-1">
                       <h3 class="font-bold text-lg text-ink truncate pr-4 dark:text-dark-text mb-1" title="${esc(doc.name)}">${esc(doc.name)}</h3>
-                      <div class="flex flex-wrap items-center gap-3 text-xs text-inksoft dark:text-dark-soft font-medium">
-                        <span class="px-2.5 py-1 bg-gray-100 rounded-md text-gray-600 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">${esc(doc.category)}</span>
+                      <div class="flex flex-wrap items-center gap-2 mb-2">
+                        ${cats.map(c => `<span class="px-2.5 py-0.5 bg-gray-100 rounded-md text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">${esc(c)}</span>`).join('')}
+                      </div>
+                      <div class="flex items-center gap-3 text-xs text-inksoft dark:text-dark-soft font-medium">
                         <span class="flex items-center gap-1.5"><i class="fa-solid fa-hard-drive text-[10px]"></i>${humanSize(doc.size)}</span>
                         <span class="w-1 h-1 bg-gray-300 rounded-full"></span>
                         <span class="flex items-center gap-1.5"><i class="fa-regular fa-calendar text-[10px]"></i>${formatDate(doc.date)}</span>
@@ -485,9 +548,14 @@ function render() {
                     </button>
                     
                     ${state.isAdmin ? `
-                      <button onclick="deleteDocument('${doc.id}')" class="btn-touch w-10 h-10 bg-rust-light text-rust rounded-xl hover:bg-rust hover:text-white transition-all duration-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:hover:shadow-lg dark:bg-opacity-20" title="Supprimer">
-                        <i class="fa-solid fa-trash-can"></i>
-                      </button>
+                      <div class="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                         <button onclick="prepareUpdate('${doc.id}')" class="btn-touch w-10 h-10 bg-gold-light text-gold rounded-xl hover:bg-gold hover:text-white transition-all duration-300 sm:hover:shadow-lg dark:bg-opacity-20" title="Mettre à jour le fichier">
+                          <i class="fa-solid fa-rotate"></i>
+                        </button>
+                        <button onclick="deleteDocument('${doc.id}')" class="btn-touch w-10 h-10 bg-rust-light text-rust rounded-xl hover:bg-rust hover:text-white transition-all duration-300 sm:hover:shadow-lg dark:bg-opacity-20" title="Supprimer">
+                          <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                      </div>
                     ` : ''}
                   </div>
                 </div>
@@ -519,7 +587,7 @@ function render() {
       </div>
     ` : ''}
 
-    <!-- NOUVELLE MODALE DE SÉLECTION DE CATÉGORIE -->
+    <!-- MODALE UPLOAD MULTI-CATÉGORIES -->
     ${state.pendingFiles ? `
       <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in" onclick="if(event.target===this){state.pendingFiles=null;render()}">
         <div class="bg-card rounded-2xl shadow-2xl max-w-lg w-full p-0 rise border border-line dark:bg-dark-card dark:border-dark-line animate-slide-up overflow-hidden flex flex-col max-h-[90vh]">
@@ -531,20 +599,23 @@ function render() {
               </div>
               <h2 class="font-display text-xl font-bold dark:text-dark-text">Configuration Upload</h2>
             </div>
-            <p class="text-sm text-inksoft dark:text-dark-soft">Vous allez importer <strong>${state.pendingFiles.length}</strong> fichier(s). Choisissez la catégorie :</p>
+            <p class="text-sm text-inksoft dark:text-dark-soft">Vous allez importer <strong>${state.pendingFiles.length}</strong> fichier(s).</p>
           </div>
 
           <div class="p-6 flex-1 overflow-y-auto">
-            <label class="block text-sm font-medium text-ink dark:text-dark-text mb-3">Catégorie cible</label>
+            <label class="block text-sm font-medium text-ink dark:text-dark-text mb-3">Catégories (Sélection multiple)</label>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-6">
-              ${CONFIG.defaultCategories.map(cat => `
-                <button onclick="state.selectedCategory='${cat}';render()"
-                  class="px-3 py-3 rounded-xl text-sm transition-all border ${state.selectedCategory === cat 
-                    ? 'bg-teal text-white border-teal shadow-md transform scale-105' 
+              ${CONFIG.defaultCategories.map(cat => {
+                const isSelected = state.selectedCategories.includes(cat);
+                return `
+                <button onclick="toggleCategory('${cat}')"
+                  class="px-3 py-3 rounded-xl text-sm transition-all border flex items-center justify-between ${isSelected 
+                    ? 'bg-teal text-white border-teal shadow-md' 
                     : 'bg-white border-line text-inksoft hover:border-teal/50 dark:bg-dark-card dark:border-dark-line dark:text-dark-soft'}">
-                  ${esc(cat)}
+                  <span>${esc(cat)}</span>
+                  ${isSelected ? '<i class="fa-solid fa-check"></i>' : ''}
                 </button>
-              `).join('')}
+              `}).join('')}
             </div>
 
             <label class="block text-sm font-medium text-ink dark:text-dark-text mb-2">Aperçu des fichiers</label>
@@ -566,6 +637,34 @@ function render() {
             <button onclick="confirmUpload()" class="flex-1 btn-touch px-4 py-3 bg-teal text-white rounded-xl hover:bg-teal-dark transition-all duration-300 text-sm font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center justify-center gap-2">
               <i class="fa-solid fa-cloud-arrow-up"></i> Lancer l'upload
             </button>
+          </div>
+        </div>
+      </div>
+    ` : ''}
+
+    <!-- MODALE UPDATE FICHIER -->
+    ${state.updatingDocId ? `
+      <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in" onclick="if(event.target===this){state.updatingDocId=null;render()}">
+        <div class="bg-card rounded-2xl shadow-2xl max-w-md w-full p-6 rise border border-line dark:bg-dark-card dark:border-dark-line animate-slide-up">
+          <div class="text-center mb-6">
+            <div class="w-16 h-16 bg-gold-light text-gold rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-lg shadow-gold/20 dark:bg-opacity-20">
+              <i class="fa-solid fa-rotate"></i>
+            </div>
+            <h2 class="font-display text-xl font-bold dark:text-dark-text">Mettre à jour le fichier</h2>
+            <p class="text-sm text-inksoft dark:text-dark-soft mt-2">Cela remplacera le fichier existant par la nouvelle version.</p>
+          </div>
+          
+          <label class="block w-full cursor-pointer">
+            <input type="file" class="hidden" onchange="confirmUpdateFile(this.files[0])" />
+            <div class="border-2 border-dashed border-line rounded-xl p-8 text-center hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors dark:border-dark-line">
+              <i class="fa-solid fa-cloud-arrow-up text-3xl text-inksoft mb-2"></i>
+              <p class="font-medium text-ink dark:text-dark-text">Choisir un nouveau fichier</p>
+              <p class="text-xs text-inksoft mt-1">Glisser ou cliquer</p>
+            </div>
+          </label>
+
+          <div class="mt-6 flex justify-end">
+             <button onclick="state.updatingDocId=null;render()" class="px-4 py-2 text-sm text-inksoft hover:text-ink dark:text-dark-soft">Annuler</button>
           </div>
         </div>
       </div>
