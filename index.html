@@ -30,91 +30,44 @@
           mono: ['"IBM Plex Mono"', 'monospace'],
         },
         animation: {
-          'fade-in': 'fadeIn 0.5s ease-out forwards',
-          'slide-up': 'slideUp 0.5s ease-out forwards',
-          'bounce-slow': 'bounce 2s infinite',
+          'fade-in': 'fadeIn 0.3s ease-out forwards',
+          'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         },
         keyframes: {
-          fadeIn: {
-            '0%': { opacity: '0' },
-            '100%': { opacity: '1' },
-          },
-          slideUp: {
-            '0%': { opacity: '0', transform: 'translateY(20px)' },
-            '100%': { opacity: '1', transform: 'translateY(0)' },
-          }
+          fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+          slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } }
         }
       },
     },
   };
 </script>
 <style>
-  /* Transitions globales douces */
-  body, div, header, footer, button, input, a {
-    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-                color 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-                border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-                box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
+  body, div, header, footer, button, input { transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease; }
   body { background-color: #F7F4EC; -webkit-tap-highlight-color: transparent; }
   ::selection { background: #2F6F5E; color: #FFFEFB; }
   
-  /* Effet de levitation au survol */
-  .hover-lift:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-  }
+  .hover-lift:hover { transform: translateY(-4px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
   
-  /* Animation d'entrée en cascade pour les listes */
-  .stagger-item {
-    opacity: 0;
-    animation: slideUp 0.4s ease-out forwards;
-  }
-  
-  /* Délais pour l'effet cascade */
+  .stagger-item { opacity: 0; animation: slideUp 0.4s ease-out forwards; }
   .stagger-item:nth-child(1) { animation-delay: 0.05s; }
   .stagger-item:nth-child(2) { animation-delay: 0.1s; }
   .stagger-item:nth-child(3) { animation-delay: 0.15s; }
-  .stagger-item:nth-child(4) { animation-delay: 0.2s; }
-  .stagger-item:nth-child(5) { animation-delay: 0.25s; }
-  .stagger-item:nth-child(6) { animation-delay: 0.3s; }
-  .stagger-item:nth-child(7) { animation-delay: 0.35s; }
-  .stagger-item:nth-child(8) { animation-delay: 0.4s; }
-  .stagger-item:nth-child(9) { animation-delay: 0.45s; }
-  .stagger-item:nth-child(10) { animation-delay: 0.5s; }
-
-  @keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
+  .stagger-item:nth-child(n+4) { animation-delay: 0.2s; }
 
   .spin { animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   
-  .focus-ring:focus-visible { outline: 2px solid #2F6F5E; outline-offset: 2px; }
-  
-  .drop-zone { 
-    border: 2px dashed #DAD3C0; 
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-  }
-  .drop-zone.drag-over { 
-    border-color: #2F6F5E; 
-    background-color: #E4EEE9; 
-    transform: scale(1.02); 
-    box-shadow: 0 0 20px rgba(47, 111, 94, 0.2);
-  }
+  .drop-zone { border: 2px dashed #DAD3C0; transition: all 0.3s ease; }
+  .drop-zone.drag-over { border-color: #2F6F5E; background-color: #E4EEE9; transform: scale(1.02); box-shadow: 0 0 20px rgba(47, 111, 94, 0.2); }
   
   .btn-touch { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
   
-  /* Scrollbar personnalisée */
+  /* Scrollbar */
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #DAD3C0; border-radius: 4px; }
   ::-webkit-scrollbar-thumb:hover { background: #2F6F5E; }
   .dark ::-webkit-scrollbar-thumb { background: #333; }
-  .dark ::-webkit-scrollbar-thumb:hover { background: #2F6F5E; }
 </style>
 </head>
 <body class="font-sans text-ink min-h-screen flex flex-col dark:bg-dark-bg dark:text-dark-text overflow-x-hidden">
@@ -128,14 +81,9 @@
 function initTheme() {
   const savedTheme = localStorage.getItem('theme');
   const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  
-  if (savedTheme === 'dark' || (!savedTheme && systemDark)) {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
-  }
+  if (savedTheme === 'dark' || (!savedTheme && systemDark)) document.documentElement.classList.add('dark');
+  else document.documentElement.classList.remove('dark');
 }
-
 function toggleTheme() {
   const html = document.documentElement;
   if (html.classList.contains('dark')) {
@@ -147,11 +95,10 @@ function toggleTheme() {
   }
   render();
 }
-
 initTheme();
 
 /* ============================================================
-   CONFIGURATION
+   CONFIGURATION & STATE
    ============================================================ */
 const CONFIG = {
   classTitle: "Portail Documents",
@@ -179,6 +126,9 @@ let state = {
   showLogin: false,
   loginError: null,
   isDragging: false,
+  // Nouveau state pour la pré-upload
+  pendingFiles: null,
+  selectedCategory: "Cours",
 };
 
 const root = document.getElementById('app');
@@ -217,21 +167,17 @@ async function forceDownload(url, filename) {
   try {
     const response = await fetch(url);
     if (!response.ok) throw new Error('Network response was not ok');
-    
     const blob = await response.blob();
     const blobUrl = window.URL.createObjectURL(blob);
-    
     const a = document.createElement('a');
     a.style.display = 'none';
     a.href = blobUrl;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    
     window.URL.revokeObjectURL(blobUrl);
     document.body.removeChild(a);
   } catch (error) {
-    console.error('Download failed:', error);
     window.open(url, '_blank');
   }
 }
@@ -292,9 +238,22 @@ async function loadDocuments() {
   finally { state.loading = false; render(); }
 }
 
-async function processFiles(files) {
+// Déclenche la modale au lieu d'uploader directement
+function prepareUpload(files) {
   if (!files || files.length === 0) return;
+  state.pendingFiles = files;
+  state.selectedCategory = state.activeCategory === 'Tous' ? 'Cours' : state.activeCategory;
+  render();
+}
+
+// Lance l'upload réel après validation dans la modale
+async function confirmUpload() {
+  if (!state.pendingFiles) return;
   
+  const files = state.pendingFiles;
+  const category = state.selectedCategory;
+  
+  state.pendingFiles = null; // Fermer la modale
   state.uploading = true;
   state.error = null;
   state.uploadStats = { current: 0, total: files.length, errors: [] };
@@ -319,7 +278,7 @@ async function processFiles(files) {
           path: filePath,
           size: file.size,
           type: file.type,
-          category: state.activeCategory === 'Tous' ? 'Autres' : state.activeCategory,
+          category: category, // Utilisation de la catégorie choisie
           date: new Date().toISOString(),
           uploadedBy: 'Admin'
         });
@@ -376,11 +335,11 @@ function handleDragLeave(e) { e.preventDefault(); state.isDragging = false; rend
 function handleDrop(e) {
   e.preventDefault(); state.isDragging = false; render();
   if (!state.isAdmin) { state.error = "Mode Admin requis."; render(); return; }
-  processFiles(e.dataTransfer.files);
+  prepareUpload(e.dataTransfer.files);
 }
 
 /* ============================================================
-   RENDU UI ANIMÉ
+   RENDU UI
    ============================================================ */
 function render() {
   const isDark = document.documentElement.classList.contains('dark');
@@ -435,7 +394,7 @@ function render() {
             <label class="btn-touch px-6 py-3.5 bg-teal text-white rounded-xl hover:bg-teal-dark transition-all duration-300 cursor-pointer focus-ring inline-flex items-center justify-center gap-2 text-sm font-medium whitespace-nowrap shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95">
               <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
               <span>Ajouter des fichiers</span>
-              <input type="file" multiple onchange="processFiles(this.files)" class="hidden"/>
+              <input type="file" multiple onchange="prepareUpload(this.files)" class="hidden"/>
             </label>
           ` : ''}
         </div>
@@ -458,7 +417,6 @@ function render() {
             <i class="fa-solid fa-cloud-arrow-up text-4xl text-teal"></i>
           </div>
           <p class="text-xl font-bold text-teal mb-1">Relâchez pour uploader</p>
-          <p class="text-sm text-inksoft dark:text-dark-soft">${state.uploadStats.total} fichiers détectés</p>
         </div>
       ` : ''}
 
@@ -469,9 +427,7 @@ function render() {
             <span class="text-inksoft dark:text-dark-soft font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-xs">${state.uploadStats.current} / ${state.uploadStats.total}</span>
           </div>
           <div class="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-            <div class="bg-gradient-to-r from-teal to-teal-dark h-3 rounded-full transition-all duration-500 ease-out relative" style="width: ${(state.uploadStats.current / state.uploadStats.total) * 100}%">
-              <div class="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]"></div>
-            </div>
+            <div class="bg-gradient-to-r from-teal to-teal-dark h-3 rounded-full transition-all duration-500 ease-out" style="width: ${(state.uploadStats.current / state.uploadStats.total) * 100}%"></div>
           </div>
         </div>
       ` : ''}
@@ -487,7 +443,6 @@ function render() {
               <i class="fa-regular fa-folder-open text-3xl opacity-50"></i>
             </div>
             <p class="text-lg font-medium">Aucun document trouvé</p>
-            <p class="text-sm opacity-70 mt-1">Essayez une autre catégorie ou recherche</p>
           </div>` :
           `<div class="grid gap-4">
             ${filteredDocs.map((doc, index) => {
@@ -504,7 +459,7 @@ function render() {
               else if (['ZIP','RAR'].includes(ext)) iconClass = "fa-file-zipper";
 
               return `
-                <div class="stagger-item bg-card border border-line rounded-2xl p-5 hover-lift group flex flex-col sm:flex-row sm:items-center justify-between gap-4 dark:bg-dark-card dark:border-dark-line cursor-default" style="animation-delay: ${index * 0.05}s">
+                <div class="stagger-item bg-card border border-line rounded-2xl p-5 hover-lift group flex flex-col sm:flex-row sm:items-center justify-between gap-4 dark:bg-dark-card dark:border-dark-line" style="animation-delay: ${index * 0.05}s">
                   <div class="flex-1 min-w-0 flex items-start gap-5">
                     <div class="shrink-0 mt-1 relative">
                       <div class="flex items-center justify-center w-14 h-14 rounded-xl bg-${color}-light text-${color} text-2xl shadow-sm dark:bg-opacity-20 transition-transform duration-300 group-hover:scale-110">
@@ -542,23 +497,75 @@ function render() {
       }
     </main>
 
+    <!-- MODALE DE CONNEXION -->
     ${state.showLogin ? `
       <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in" onclick="if(event.target===this){state.showLogin=false;render()}">
-        <div class="bg-card rounded-2xl shadow-2xl max-w-md w-full p-8 rise border border-line dark:bg-dark-card dark:border-dark-line animate-slide-up transform transition-all">
+        <div class="bg-card rounded-2xl shadow-2xl max-w-md w-full p-8 rise border border-line dark:bg-dark-card dark:border-dark-line animate-slide-up">
           <div class="text-center mb-6">
-            <div class="w-16 h-16 bg-teal-light text-teal rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-lg shadow-teal/20 dark:bg-opacity-20 rotate-3 hover:rotate-6 transition-transform">
+            <div class="w-16 h-16 bg-teal-light text-teal rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-lg shadow-teal/20 dark:bg-opacity-20">
               <i class="fa-solid fa-lock"></i>
             </div>
             <h2 class="font-display text-2xl font-bold dark:text-dark-text">Connexion Admin</h2>
-            <p class="text-inksoft text-sm mt-2 dark:text-dark-soft">Accès sécurisé au panneau de gestion</p>
           </div>
           <div class="relative mb-6 group">
-            <i class="fa-solid fa-key absolute left-4 top-1/2 -translate-y-1/2 text-inksoft dark:text-dark-soft transition-colors group-focus-within:text-teal"></i>
-            <input type="password" id="gh-token" placeholder="ghp_..." class="w-full pl-12 pr-4 py-4 border border-line rounded-xl focus-ring font-mono text-sm bg-paper dark:bg-gray-800 dark:border-dark-line dark:text-dark-text transition-all duration-300 hover:border-teal/50" />
+            <i class="fa-solid fa-key absolute left-4 top-1/2 -translate-y-1/2 text-inksoft dark:text-dark-soft"></i>
+            <input type="password" id="gh-token" placeholder="ghp_..." class="w-full pl-12 pr-4 py-4 border border-line rounded-xl focus-ring font-mono text-sm bg-paper dark:bg-gray-800 dark:border-dark-line dark:text-dark-text" />
           </div>
           <div class="flex gap-3">
-            <button onclick="state.showLogin=false;render()" class="flex-1 btn-touch px-4 py-3.5 border border-line rounded-xl hover:bg-paper transition-all duration-300 text-sm font-medium dark:border-dark-line dark:hover:bg-gray-700 dark:text-dark-text hover:shadow-md">Annuler</button>
+            <button onclick="state.showLogin=false;render()" class="flex-1 btn-touch px-4 py-3.5 border border-line rounded-xl hover:bg-paper transition-all duration-300 text-sm font-medium dark:border-dark-line dark:hover:bg-gray-700 dark:text-dark-text">Annuler</button>
             <button onclick="handleLogin(document.getElementById('gh-token').value)" class="flex-1 btn-touch px-4 py-3.5 bg-teal text-white rounded-xl hover:bg-teal-dark transition-all duration-300 text-sm font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5">Connexion</button>
+          </div>
+        </div>
+      </div>
+    ` : ''}
+
+    <!-- NOUVELLE MODALE DE SÉLECTION DE CATÉGORIE -->
+    ${state.pendingFiles ? `
+      <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in" onclick="if(event.target===this){state.pendingFiles=null;render()}">
+        <div class="bg-card rounded-2xl shadow-2xl max-w-lg w-full p-0 rise border border-line dark:bg-dark-card dark:border-dark-line animate-slide-up overflow-hidden flex flex-col max-h-[90vh]">
+          
+          <div class="p-6 border-b border-line dark:border-dark-line bg-gray-50 dark:bg-gray-800/50">
+            <div class="flex items-center gap-3 mb-2">
+              <div class="w-10 h-10 bg-teal/10 text-teal rounded-lg flex items-center justify-center text-lg">
+                <i class="fa-solid fa-tags"></i>
+              </div>
+              <h2 class="font-display text-xl font-bold dark:text-dark-text">Configuration Upload</h2>
+            </div>
+            <p class="text-sm text-inksoft dark:text-dark-soft">Vous allez importer <strong>${state.pendingFiles.length}</strong> fichier(s). Choisissez la catégorie :</p>
+          </div>
+
+          <div class="p-6 flex-1 overflow-y-auto">
+            <label class="block text-sm font-medium text-ink dark:text-dark-text mb-3">Catégorie cible</label>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-6">
+              ${CONFIG.defaultCategories.map(cat => `
+                <button onclick="state.selectedCategory='${cat}';render()"
+                  class="px-3 py-3 rounded-xl text-sm transition-all border ${state.selectedCategory === cat 
+                    ? 'bg-teal text-white border-teal shadow-md transform scale-105' 
+                    : 'bg-white border-line text-inksoft hover:border-teal/50 dark:bg-dark-card dark:border-dark-line dark:text-dark-soft'}">
+                  ${esc(cat)}
+                </button>
+              `).join('')}
+            </div>
+
+            <label class="block text-sm font-medium text-ink dark:text-dark-text mb-2">Aperçu des fichiers</label>
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 max-h-40 overflow-y-auto border border-line dark:border-dark-line">
+              <ul class="space-y-2">
+                ${Array.from(state.pendingFiles).map(f => `
+                  <li class="flex items-center gap-2 text-xs text-inksoft dark:text-dark-soft">
+                    <i class="fa-regular fa-file text-teal"></i>
+                    <span class="truncate flex-1">${esc(f.name)}</span>
+                    <span class="font-mono opacity-70">${humanSize(f.size)}</span>
+                  </li>
+                `).join('')}
+              </ul>
+            </div>
+          </div>
+
+          <div class="p-6 border-t border-line dark:border-dark-line bg-gray-50 dark:bg-gray-800/50 flex gap-3">
+            <button onclick="state.pendingFiles=null;render()" class="flex-1 btn-touch px-4 py-3 border border-line rounded-xl hover:bg-white transition-all duration-300 text-sm font-medium dark:border-dark-line dark:hover:bg-gray-700 dark:text-dark-text">Annuler</button>
+            <button onclick="confirmUpload()" class="flex-1 btn-touch px-4 py-3 bg-teal text-white rounded-xl hover:bg-teal-dark transition-all duration-300 text-sm font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center justify-center gap-2">
+              <i class="fa-solid fa-cloud-arrow-up"></i> Lancer l'upload
+            </button>
           </div>
         </div>
       </div>
