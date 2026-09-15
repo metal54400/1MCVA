@@ -204,10 +204,11 @@ let state = {
 };
 
 const root = document.getElementById('app');
-// URL pour le téléchargement direct (force download)
+
+// URL pour le téléchargement direct via GitHub Raw
 const RAW_BASE = `https://raw.githubusercontent.com/${CONFIG.githubOwner}/${CONFIG.githubRepo}/${CONFIG.githubBranch}`;
-// URL pour l'aperçu navigateur (force display)
-const MEDIA_BASE = `https://media.githubusercontent.com/media/${CONFIG.githubOwner}/${CONFIG.githubRepo}/${CONFIG.githubBranch}`;
+// URL pour l'aperçu rapide via le dossier local /files/
+const FILES_BASE = `/${CONFIG.filesFolder}`;
 const API_BASE = `https://api.github.com/repos/${CONFIG.githubOwner}/${CONFIG.githubRepo}/contents`;
 
 /* ============================================================
@@ -276,8 +277,9 @@ async function forceDownload(url, filename) {
   }
 }
 
-function openPreview(url, type, name) {
-  state.previewUrl = url;
+function openPreview(path, type, name) {
+  // On utilise ici le chemin local /files/ pour un chargement instantané
+  state.previewUrl = `${FILES_BASE}/${path}`;
   state.previewType = type;
   state.previewName = name;
   render();
@@ -576,10 +578,8 @@ function render() {
               const ext = extOf(doc.name);
               const color = extColor(ext);
               
-              // URLs distinctes pour Download vs Preview
+              // URLs distinctes : Raw pour DL, Local pour Preview
               const rawUrl = `${RAW_BASE}/${doc.path}`;
-              const mediaUrl = `${MEDIA_BASE}/${doc.path}`;
-              
               const canPreview = isPreviewable(ext);
               
               let iconClass = "fa-file";
@@ -625,7 +625,7 @@ function render() {
                       </button>
                       
                       ${canPreview ? `
-                        <button onclick="openPreview('${mediaUrl}', '${ext === 'PDF' ? 'pdf' : 'image'}', '${esc(doc.name).replace(/'/g, "\\'")}')" 
+                        <button onclick="openPreview('${doc.path}', '${ext === 'PDF' ? 'pdf' : 'image'}', '${esc(doc.name).replace(/'/g, "\\'")}')" 
                           class="btn-touch preview-btn bg-paper text-ink border border-line rounded-lg hover:bg-gray-100 transition-all text-sm font-bold shadow-sm active:scale-95 flex items-center justify-center gap-2 dark:bg-dark-card dark:border-dark-line dark:text-dark-text dark:hover:bg-gray-700">
                           <i class="fa-solid fa-eye"></i>
                           <span class="hidden sm:inline">Aperçu</span>
@@ -652,7 +652,7 @@ function render() {
       }
     </main>
 
-    <!-- MODALE DE PRÉVISUALISATION -->
+    <!-- MODALE DE PRÉVISUALISATION (Via /files/) -->
     ${state.previewUrl ? `
       <div class="preview-modal animate-fade-in">
         <div class="preview-header">
