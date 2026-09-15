@@ -205,10 +205,10 @@ let state = {
 
 const root = document.getElementById('app');
 
-// URL pour le téléchargement direct via GitHub Raw
-const RAW_BASE = `https://raw.githubusercontent.com/${CONFIG.githubOwner}/${CONFIG.githubRepo}/${CONFIG.githubBranch}`;
-// URL pour l'aperçu rapide via le dossier local /files/
-const FILES_BASE = `/${CONFIG.filesFolder}`;
+// URL RELATIVE POUR GITHUB PAGES (Fonctionne pour Download ET Preview)
+// Cela pointe vers le dossier 'files' à côté de votre index.html
+const FILES_BASE = `./${CONFIG.filesFolder}`; 
+
 const API_BASE = `https://api.github.com/repos/${CONFIG.githubOwner}/${CONFIG.githubRepo}/contents`;
 
 /* ============================================================
@@ -243,14 +243,16 @@ function isPreviewable(ext) {
 /* ============================================================
    TÉLÉCHARGEMENT UNIVERSEL
    ============================================================ */
-async function forceDownload(url, filename) {
+async function forceDownload(path, filename) {
   try {
     const btn = event.currentTarget;
     const originalHTML = btn.innerHTML;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
     btn.disabled = true;
     
-    // Utilisation de fetch + blob pour forcer le téléchargement sur mobile
+    // Utilisation du chemin relatif local
+    const url = `${FILES_BASE}/${path}`;
+    
     const response = await fetch(url);
     if (!response.ok) throw new Error('Network response was not ok');
     
@@ -273,12 +275,13 @@ async function forceDownload(url, filename) {
     
   } catch (error) {
     console.error('Download failed:', error);
-    window.open(url, '_blank');
+    // Fallback si fetch échoue (rare en local)
+    window.open(`${FILES_BASE}/${path}`, '_blank');
   }
 }
 
 function openPreview(path, type, name) {
-  // On utilise ici le chemin local /files/ pour un chargement instantané
+  // Chemin relatif local pour l'aperçu (instantané)
   state.previewUrl = `${FILES_BASE}/${path}`;
   state.previewType = type;
   state.previewName = name;
@@ -293,7 +296,7 @@ function closePreview() {
 }
 
 /* ============================================================
-   API GITHUB
+   API GITHUB (Uniquement pour Admin/Upload/Delete)
    ============================================================ */
 async function apiRequest(endpoint, options = {}) {
   const headers = { 'Accept': 'application/vnd.github.v3+json', ...options.headers };
@@ -312,7 +315,16 @@ async function loadManifest() {
     const data = await apiRequest(`/${CONFIG.manifestPath}`);
     state.manifestSha = data.sha;
     return JSON.parse(atob(data.content));
-  } catch (e) { if (e.message.includes('404')) return []; throw e; }
+  } catch (e) { 
+    // Si le manifest n'existe pas sur GitHub, on essaie de le charger localement (fallback)
+    try {
+        const localResp = await fetch('./manifest.json');
+        if(localResp.ok) return await localResp.json();
+    } catch(err) {}
+    
+    if (e.message.includes('404')) return []; 
+    throw e; 
+  }
 }
 
 async function saveManifest(documents) {
@@ -578,8 +590,7 @@ function render() {
               const ext = extOf(doc.name);
               const color = extColor(ext);
               
-              // URLs distinctes : Raw pour DL, Local pour Preview
-              const rawUrl = `${RAW_BASE}/${doc.path}`;
+              // On utilise le chemin relatif stocké dans doc.path (ex: files/monfichier.pdf)
               const canPreview = isPreviewable(ext);
               
               let iconClass = "fa-file";
@@ -618,7 +629,7 @@ function render() {
                   <!-- Zone d'Actions -->
                   <div class="action-area">
                     <div class="action-buttons-group">
-                      <button onclick="forceDownload('${rawUrl}', '${esc(doc.name).replace(/'/g, "\\'")}')" 
+                      <button onclick="forceDownload('${doc.path}', '${esc(doc.name).replace(/'/g, "\\'")}')" 
                         class="btn-touch download-btn bg-teal text-white rounded-lg hover:bg-teal-dark transition-all text-sm font-bold shadow-sm active:scale-95 flex items-center justify-center gap-2">
                         <i class="fa-solid fa-download"></i>
                         <span>Télécharger</span>
@@ -652,7 +663,7 @@ function render() {
       }
     </main>
 
-    <!-- MODALE DE PRÉVISUALISATION (Via /files/) -->
+    <!-- MODALE DE PRÉVISUALISATION (Via chemin relatif local) -->
     ${state.previewUrl ? `
       <div class="preview-modal animate-fade-in">
         <div class="preview-header">
@@ -661,7 +672,7 @@ function render() {
             <span class="font-medium truncate max-w-[200px] sm:max-w-md">${esc(state.previewName)}</span>
           </div>
           <div class="flex items-center gap-2">
-            <a href="${RAW_BASE}/${state.previewUrl.split('/').pop()}" download target="_blank" class="btn-touch w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white transition" title="Télécharger ce fichier">
+            <a href="${state.previewUrl}" download target="_blank" class="btn-touch w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white transition" title="Télécharger ce fichier">
               <i class="fa-solid fa-download"></i>
             </a>
             <button onclick="closePreview()" class="btn-touch w-10 h-10 rounded-full bg-white/10 hover:bg-red-500/80 text-white transition" title="Fermer">
