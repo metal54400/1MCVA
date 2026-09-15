@@ -42,10 +42,6 @@
   };
 </script>
 <style>
-  /* =========================================
-     CSS SPÉCIALISÉ PAR APPAREIL & PREVIEW
-     ========================================= */
-  
   body, div, header, footer, button, input { 
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease; 
   }
@@ -97,23 +93,16 @@
   /* --- MOBILE (< 768px) --- */
   @media (max-width: 767px) {
     .doc-card {
-      padding: 1rem;
-      border-radius: 1rem;
-      margin-bottom: 0.75rem;
-      display: flex;
-      flex-direction: column;
+      padding: 1rem; border-radius: 1rem; margin-bottom: 0.75rem;
+      display: flex; flex-direction: column;
     }
-    .doc-icon-box {
-      width: 3rem; height: 3rem; font-size: 1.25rem;
-    }
+    .doc-icon-box { width: 3rem; height: 3rem; font-size: 1.25rem; }
     .action-area {
       width: 100%; margin-top: 0.75rem; padding-top: 0.75rem;
       border-top: 1px solid var(--line-color, #DAD3C0);
       display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
     }
-    .download-btn, .preview-btn {
-      justify-content: center; width: 100%;
-    }
+    .download-btn, .preview-btn { justify-content: center; width: 100%; }
     .admin-actions-row {
       grid-column: span 2; display: flex; gap: 0.5rem; margin-top: 0.25rem;
     }
@@ -129,45 +118,24 @@
   /* --- TABLETTE & PC (> 768px) --- */
   @media (min-width: 768px) {
     .doc-list-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1.5rem;
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem;
     }
-    
     .doc-card {
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: row;
-      align-items: flex-start;
-      justify-content: space-between;
+      padding: 1.5rem; display: flex; flex-direction: row;
+      align-items: flex-start; justify-content: space-between;
     }
-
-    .doc-icon-box {
-      width: 3.5rem; height: 3.5rem; font-size: 1.5rem; margin-right: 1rem;
-    }
-
+    .doc-icon-box { width: 3.5rem; height: 3.5rem; font-size: 1.5rem; margin-right: 1rem; }
     .info-area { flex: 1; min-width: 0; }
-
     .action-area {
       display: flex; flex-direction: column; gap: 0.5rem;
       margin-left: 1rem; flex-shrink: 0; align-items: flex-end;
     }
-
-    .action-buttons-group {
-      display: flex; gap: 0.5rem;
-    }
-
+    .action-buttons-group { display: flex; gap: 0.5rem; }
     .admin-actions-row {
       display: flex; gap: 0.5rem; margin-top: 0.25rem; justify-content: flex-end;
     }
-    
-    /* Preview sized sur PC */
-    .preview-content iframe {
-      max-width: 1200px; max-height: 90vh;
-    }
-    .preview-content img {
-      max-width: 90vw; max-height: 90vh;
-    }
+    .preview-content iframe { max-width: 1200px; max-height: 90vh; }
+    .preview-content img { max-width: 90vw; max-height: 90vh; }
   }
 </style>
 </head>
@@ -230,13 +198,16 @@ let state = {
   pendingFiles: null,
   selectedCategories: [],
   updatingDocId: null,
-  previewUrl: null, // Pour la modale d'aperçu
-  previewType: null, // 'pdf' ou 'image'
+  previewUrl: null,
+  previewType: null,
   previewName: '',
 };
 
 const root = document.getElementById('app');
+// URL pour le téléchargement direct (force download)
 const RAW_BASE = `https://raw.githubusercontent.com/${CONFIG.githubOwner}/${CONFIG.githubRepo}/${CONFIG.githubBranch}`;
+// URL pour l'aperçu navigateur (force display)
+const MEDIA_BASE = `https://media.githubusercontent.com/media/${CONFIG.githubOwner}/${CONFIG.githubRepo}/${CONFIG.githubBranch}`;
 const API_BASE = `https://api.github.com/repos/${CONFIG.githubOwner}/${CONFIG.githubRepo}/contents`;
 
 /* ============================================================
@@ -264,7 +235,6 @@ function bufferToBase64(buffer) {
   return btoa(binary);
 }
 
-// Vérifie si le fichier est prévisualisable
 function isPreviewable(ext) {
   return ['PDF', 'JPG', 'JPEG', 'PNG', 'GIF', 'WEBP'].includes(ext);
 }
@@ -279,6 +249,7 @@ async function forceDownload(url, filename) {
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
     btn.disabled = true;
     
+    // Utilisation de fetch + blob pour forcer le téléchargement sur mobile
     const response = await fetch(url);
     if (!response.ok) throw new Error('Network response was not ok');
     
@@ -305,7 +276,6 @@ async function forceDownload(url, filename) {
   }
 }
 
-// Ouvre la modale de prévisualisation
 function openPreview(url, type, name) {
   state.previewUrl = url;
   state.previewType = type;
@@ -605,7 +575,11 @@ function render() {
             ${filteredDocs.map((doc, index) => {
               const ext = extOf(doc.name);
               const color = extColor(ext);
+              
+              // URLs distinctes pour Download vs Preview
               const rawUrl = `${RAW_BASE}/${doc.path}`;
+              const mediaUrl = `${MEDIA_BASE}/${doc.path}`;
+              
               const canPreview = isPreviewable(ext);
               
               let iconClass = "fa-file";
@@ -651,7 +625,7 @@ function render() {
                       </button>
                       
                       ${canPreview ? `
-                        <button onclick="openPreview('${rawUrl}', '${ext === 'PDF' ? 'pdf' : 'image'}', '${esc(doc.name).replace(/'/g, "\\'")}')" 
+                        <button onclick="openPreview('${mediaUrl}', '${ext === 'PDF' ? 'pdf' : 'image'}', '${esc(doc.name).replace(/'/g, "\\'")}')" 
                           class="btn-touch preview-btn bg-paper text-ink border border-line rounded-lg hover:bg-gray-100 transition-all text-sm font-bold shadow-sm active:scale-95 flex items-center justify-center gap-2 dark:bg-dark-card dark:border-dark-line dark:text-dark-text dark:hover:bg-gray-700">
                           <i class="fa-solid fa-eye"></i>
                           <span class="hidden sm:inline">Aperçu</span>
@@ -687,17 +661,17 @@ function render() {
             <span class="font-medium truncate max-w-[200px] sm:max-w-md">${esc(state.previewName)}</span>
           </div>
           <div class="flex items-center gap-2">
-            <a href="${state.previewUrl}" download target="_blank" class="btn-touch w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white transition">
+            <a href="${RAW_BASE}/${state.previewUrl.split('/').pop()}" download target="_blank" class="btn-touch w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white transition" title="Télécharger ce fichier">
               <i class="fa-solid fa-download"></i>
             </a>
-            <button onclick="closePreview()" class="btn-touch w-10 h-10 rounded-full bg-white/10 hover:bg-red-500/80 text-white transition">
+            <button onclick="closePreview()" class="btn-touch w-10 h-10 rounded-full bg-white/10 hover:bg-red-500/80 text-white transition" title="Fermer">
               <i class="fa-solid fa-xmark text-xl"></i>
             </button>
           </div>
         </div>
         <div class="preview-content">
           ${state.previewType === 'pdf' 
-            ? `<iframe src="${state.previewUrl}#toolbar=0&navpanes=0&scrollbar=1"></iframe>`
+            ? `<iframe src="${state.previewUrl}#toolbar=0&navpanes=0&scrollbar=1" title="Aperçu PDF"></iframe>`
             : `<img src="${state.previewUrl}" alt="${esc(state.previewName)}" />`
           }
         </div>
