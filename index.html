@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!-- Font Awesome -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
@@ -20,132 +19,189 @@
           teal: { DEFAULT: '#2F6F5E', dark: '#234F43', light: '#E4EEE9' },
           gold: { DEFAULT: '#9C6B2B', light: '#F3E7D3' },
           rust: { DEFAULT: '#A8432E', light: '#F5E1DB' },
-          dark: {
-            bg: '#121212', card: '#1E1E1E', line: '#333333', text: '#E0E0E0', soft: '#A0A0A0'
-          }
+          dark: { bg: '#121212', card: '#1E1E1E', line: '#333333', text: '#E0E0E0', soft: '#A0A0A0' }
         },
-        fontFamily: {
-          display: ['"Fraunces"', 'serif'],
-          sans: ['"IBM Plex Sans"', 'sans-serif'],
-          mono: ['"IBM Plex Mono"', 'monospace'],
-        },
-        animation: {
-          'fade-in': 'fadeIn 0.3s ease-out forwards',
-          'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-        },
-        keyframes: {
-          fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-          slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } }
-        }
+        fontFamily: { display: ['"Fraunces"', 'serif'], sans: ['"IBM Plex Sans"', 'sans-serif'], mono: ['"IBM Plex Mono"', 'monospace'] },
+        animation: { 'fade-in': 'fadeIn 0.5s ease-out forwards', 'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards', 'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite' },
+        keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } }, slideUp: { '0%': { opacity: '0', transform: 'translateY(30px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } }
       },
     },
   };
 </script>
 <style>
-  body, div, header, footer, button, input { 
-    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease; 
+  body, div, header, footer, button, input, span, h1, h2, h3, p, i { 
+    transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s ease; 
   }
-  body { background-color: #F7F4EC; -webkit-tap-highlight-color: transparent; }
+  body { background-color: #F7F4EC; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
   ::selection { background: #2F6F5E; color: #FFFEFB; }
-  
-  .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); }
-  
-  .stagger-item { opacity: 0; animation: slideUp 0.4s ease-out forwards; }
+  .hover-lift:hover { transform: translateY(-3px); box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.15); }
+  .stagger-item { opacity: 0; animation: slideUp 0.5s ease-out forwards; }
   .stagger-item:nth-child(1) { animation-delay: 0.05s; }
   .stagger-item:nth-child(2) { animation-delay: 0.1s; }
   .stagger-item:nth-child(3) { animation-delay: 0.15s; }
   .stagger-item:nth-child(n+4) { animation-delay: 0.2s; }
-
-  .spin { animation: spin 1s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  
-  .drop-zone { border: 2px dashed #DAD3C0; transition: all 0.3s ease; }
-  .drop-zone.drag-over { border-color: #2F6F5E; background-color: #E4EEE9; transform: scale(1.02); }
-  
   .btn-touch { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
-  
-  /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #DAD3C0; border-radius: 4px; }
-  .dark ::-webkit-scrollbar-thumb { background: #333; }
+  .dark ::-webkit-scrollbar-thumb { background: #444; }
 
-  /* --- STYLES POUR LA MODALE DE PRÉVISUALISATION --- */
-  .preview-modal {
-    position: fixed; inset: 0; z-index: 100;
-    background: rgba(0,0,0,0.9); backdrop-filter: blur(5px);
-    display: flex; flex-direction: column;
+  /* ============================================
+     ÉCRAN DE CHARGEMENT INITIAL (50 SECONDES)
+     ============================================ */
+  #splash-screen {
+    position: fixed; inset: 0; z-index: 99999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #F7F4EC 0%, #E4EEE9 100%);
+    transition: opacity 1s ease, visibility 1s ease;
   }
-  .preview-header {
-    padding: 1rem; display: flex; justify-content: space-between; align-items: center;
-    background: rgba(0,0,0,0.5); border-bottom: 1px solid rgba(255,255,255,0.1);
+  .dark #splash-screen {
+    background: linear-gradient(135deg, #121212 0%, #1E1E1E 100%);
   }
-  .preview-content {
-    flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 1rem;
+  
+  .splash-logo {
+    width: 100px; height: 100px;
+    background: linear-gradient(135deg, #2F6F5E 0%, #234F43 100%);
+    border-radius: 24px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 2.5rem;
+    box-shadow: 0 20px 60px rgba(47, 111, 94, 0.3);
+    margin-bottom: 2rem;
+    animation: logoFloat 3s ease-in-out infinite;
   }
-  .preview-content iframe {
-    width: 100%; height: 100%; border: none; background: white; border-radius: 8px;
+  
+  @keyframes logoFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-10px) rotate(2deg); }
   }
-  .preview-content img {
-    max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  
+  .splash-title {
+    font-family: 'Fraunces', serif;
+    font-size: 1.75rem; font-weight: 700;
+    color: #1E2A3A; margin-bottom: 0.5rem;
   }
-
-  /* --- MOBILE (< 768px) --- */
+  .dark .splash-title { color: #E0E0E0; }
+  
+  .splash-subtitle {
+    font-size: 0.875rem; color: #586274;
+    margin-bottom: 2.5rem; font-weight: 500;
+  }
+  .dark .splash-subtitle { color: #A0A0A0; }
+  
+  /* Barre de progression */
+  .progress-container {
+    width: 280px; max-width: 80vw;
+    height: 8px; background: #DAD3C0;
+    border-radius: 100px; overflow: hidden;
+    margin-bottom: 1rem; position: relative;
+  }
+  .dark .progress-container { background: #333; }
+  
+  .progress-bar {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #2F6F5E 0%, #234F43 100%);
+    border-radius: 100px;
+    transition: width 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .progress-bar::after {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: shimmer 1.5s infinite;
+  }
+  
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  
+  .progress-percent {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.875rem; font-weight: 600;
+    color: #2F6F5E; margin-bottom: 0.5rem;
+  }
+  
+  .progress-message {
+    font-size: 0.75rem; color: #586274;
+    font-style: italic; text-align: center;
+    min-height: 1.2rem;
+  }
+  .dark .progress-message { color: #A0A0A0; }
+  
+  /* Indicateurs de chargement (points) */
+  .loading-dots {
+    display: flex; gap: 6px; margin-top: 1.5rem;
+  }
+  .loading-dot {
+    width: 8px; height: 8px;
+    background: #2F6F5E; border-radius: 50%;
+    animation: dotPulse 1.4s ease-in-out infinite;
+  }
+  .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+  
+  @keyframes dotPulse {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+  
+  /* MOBILE (< 768px) */
   @media (max-width: 767px) {
-    .doc-card {
-      padding: 1rem; border-radius: 1rem; margin-bottom: 0.75rem;
-      display: flex; flex-direction: column;
-    }
+    .doc-card { padding: 1rem; border-radius: 1rem; margin-bottom: 0.75rem; display: flex; flex-direction: column; }
     .doc-icon-box { width: 3rem; height: 3rem; font-size: 1.25rem; }
-    .action-area {
-      width: 100%; margin-top: 0.75rem; padding-top: 0.75rem;
-      border-top: 1px solid var(--line-color, #DAD3C0);
-      display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
-    }
-    .download-btn, .preview-btn { justify-content: center; width: 100%; }
-    .admin-actions-row {
-      grid-column: span 2; display: flex; gap: 0.5rem; margin-top: 0.25rem;
-    }
+    .action-area { width: 100%; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--line-color, #DAD3C0); }
+    .download-btn { width: 100%; justify-content: center; }
+    .admin-actions-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
     .admin-btn { flex: 1; height: 40px; }
     .category-badge { font-size: 0.65rem; padding: 0.15rem 0.4rem; }
-    
-    /* Preview full screen sur mobile */
-    .preview-content iframe, .preview-content img {
-      border-radius: 0; width: 100vw; height: 100%;
-    }
   }
 
-  /* --- TABLETTE & PC (> 768px) --- */
+  /* TABLETTE & PC (> 768px) */
   @media (min-width: 768px) {
-    .doc-list-grid {
-      display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem;
-    }
-    .doc-card {
-      padding: 1.5rem; display: flex; flex-direction: row;
-      align-items: flex-start; justify-content: space-between;
-    }
+    .doc-list-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+    .doc-card { padding: 1.5rem; display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; }
     .doc-icon-box { width: 3.5rem; height: 3.5rem; font-size: 1.5rem; margin-right: 1rem; }
     .info-area { flex: 1; min-width: 0; }
-    .action-area {
-      display: flex; flex-direction: column; gap: 0.5rem;
-      margin-left: 1rem; flex-shrink: 0; align-items: flex-end;
-    }
-    .action-buttons-group { display: flex; gap: 0.5rem; }
-    .admin-actions-row {
-      display: flex; gap: 0.5rem; margin-top: 0.25rem; justify-content: flex-end;
-    }
-    .preview-content iframe { max-width: 1200px; max-height: 90vh; }
-    .preview-content img { max-width: 90vw; max-height: 90vh; }
+    .action-area { display: flex; flex-direction: column; gap: 0.5rem; margin-left: 1rem; flex-shrink: 0; align-items: flex-end; }
+    .admin-actions-row { display: flex; gap: 0.5rem; margin-top: 0.25rem; justify-content: flex-end; }
   }
 </style>
 </head>
-<body class="font-sans text-ink min-h-screen flex flex-col dark:bg-dark-bg dark:text-dark-text overflow-x-hidden">
+<body class="font-sans text-ink min-h-screen flex flex-col dark:bg-dark-bg dark:text-dark-text">
 
-<div id="app" class="flex-1 flex flex-col"></div>
+<!-- ============================================
+     ÉCRAN DE CHARGEMENT INITIAL (50 SECONDES)
+     ============================================ -->
+<div id="splash-screen">
+  <div class="splash-logo">
+    <i class="fa-solid fa-folder-open"></i>
+  </div>
+  <h1 class="splash-title">Portail Documents</h1>
+  <p class="splash-subtitle">Classe 1MCVA</p>
+  
+  <div class="progress-percent" id="progress-percent">0%</div>
+  
+  <div class="progress-container">
+    <div class="progress-bar" id="progress-bar"></div>
+  </div>
+  
+  <p class="progress-message" id="progress-message">Initialisation...</p>
+  
+  <div class="loading-dots">
+    <div class="loading-dot"></div>
+    <div class="loading-dot"></div>
+    <div class="loading-dot"></div>
+  </div>
+</div>
+
+<div id="app" class="flex-1 flex flex-col opacity-0 transition-opacity duration-1000"></div>
 
 <script>
 /* ============================================================
-   GESTION DU THÈME
+   GESTION DU THÈME & CHARGEMENT INITIAL (50s)
    ============================================================ */
 function initTheme() {
   const savedTheme = localStorage.getItem('theme');
@@ -153,6 +209,7 @@ function initTheme() {
   if (savedTheme === 'dark' || (!savedTheme && systemDark)) document.documentElement.classList.add('dark');
   else document.documentElement.classList.remove('dark');
 }
+
 function toggleTheme() {
   const html = document.documentElement;
   if (html.classList.contains('dark')) {
@@ -166,49 +223,84 @@ function toggleTheme() {
 }
 initTheme();
 
+// Messages de chargement qui défilent
+const loadingMessages = [
+  "Chargement des styles...",
+  "Initialisation de l'interface...",
+  "Connexion au serveur...",
+  "Récupération des documents...",
+  "Optimisation des ressources...",
+  "Chargement des polices...",
+  "Préparation de l'espace...",
+  "Vérification des fichiers...",
+  "Synchronisation des données...",
+  "Finalisation du chargement...",
+  "Presque prêt...",
+  "Dernières vérifications...",
+  "Bienvenue sur le portail !"
+];
+
+// Durée totale : 50 secondes
+const TOTAL_DURATION = 50000;
+const startTime = Date.now();
+const progressBar = document.getElementById('progress-bar');
+const progressPercent = document.getElementById('progress-percent');
+const progressMessage = document.getElementById('progress-message');
+
+function updateProgress() {
+  const elapsed = Date.now() - startTime;
+  const progress = Math.min((elapsed / TOTAL_DURATION) * 100, 100);
+  
+  progressBar.style.width = progress + '%';
+  progressPercent.textContent = Math.floor(progress) + '%';
+  
+  // Changer le message selon la progression
+  const messageIndex = Math.floor((progress / 100) * loadingMessages.length);
+  if (loadingMessages[messageIndex]) {
+    progressMessage.textContent = loadingMessages[messageIndex];
+  }
+  
+  if (progress < 100) {
+    requestAnimationFrame(updateProgress);
+  } else {
+    // Chargement terminé, afficher le site
+    setTimeout(() => {
+      const splash = document.getElementById('splash-screen');
+      const app = document.getElementById('app');
+      splash.style.opacity = '0';
+      splash.style.visibility = 'hidden';
+      setTimeout(() => {
+        splash.style.display = 'none';
+        app.style.opacity = '1';
+        loadDocuments();
+      }, 1000);
+    }, 500);
+  }
+}
+
+// Démarrer la progression immédiatement
+requestAnimationFrame(updateProgress);
+
 /* ============================================================
    CONFIGURATION & STATE
    ============================================================ */
 const CONFIG = {
-  classTitle: "Portail Documents",
-  className: "1MCVA",
-  githubOwner: "metal54400", 
-  githubRepo: "1MCVA",
-  githubBranch: "main",
-  filesFolder: "files",
-  manifestPath: "manifest.json",
-  maxFileMB: 20,
+  classTitle: "Portail Documents", className: "1MCVA",
+  githubOwner: "metal54400", githubRepo: "1MCVA", githubBranch: "main",
+  filesFolder: "files", manifestPath: "manifest.json", maxFileMB: 20,
   defaultCategories: ["Cours", "Diapositives", "TD / TP", "Examens", "Annonces", "Autres"],
 };
 
 let state = {
-  isAdmin: false,
-  githubToken: "",
-  documents: [],
-  manifestSha: null,
-  search: "",
-  activeCategory: "Tous",
-  loading: true,
-  uploading: false,
-  uploadStats: { current: 0, total: 0, errors: [] },
-  error: null,
-  showLogin: false,
-  loginError: null,
-  isDragging: false,
-  pendingFiles: null,
-  selectedCategories: [],
-  updatingDocId: null,
-  previewUrl: null,
-  previewType: null,
-  previewName: '',
+  isAdmin: false, githubToken: "", documents: [], manifestSha: null,
+  search: "", activeCategory: "Tous", loading: false, uploading: false,
+  uploadStats: { current: 0, total: 0, errors: [] }, error: null,
+  showLogin: false, loginError: null, isDragging: false,
+  pendingFiles: null, selectedCategories: [], updatingDocId: null,
 };
 
 const root = document.getElementById('app');
-
-// URL RELATIVE POUR GITHUB PAGES (Fonctionne pour Download ET Preview)
-// Cela pointe vers le dossier 'files' à côté de votre index.html
-const FILES_BASE = `./${CONFIG.filesFolder}`; 
-
+const FILES_BASE = `./${CONFIG.filesFolder}`;
 const API_BASE = `https://api.github.com/repos/${CONFIG.githubOwner}/${CONFIG.githubRepo}/contents`;
 
 /* ============================================================
@@ -229,120 +321,56 @@ function extColor(ext) {
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 function safeName(name) { return name.replace(/[^a-zA-Z0-9._-]/g, '_'); }
 function bufferToBase64(buffer) {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const chunk = 0x8000;
+  let binary = ''; const bytes = new Uint8Array(buffer); const chunk = 0x8000;
   for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
   return btoa(binary);
 }
 
-function isPreviewable(ext) {
-  return ['PDF', 'JPG', 'JPEG', 'PNG', 'GIF', 'WEBP'].includes(ext);
-}
-
 /* ============================================================
-   TÉLÉCHARGEMENT UNIVERSEL
+   TÉLÉCHARGEMENT
    ============================================================ */
 async function forceDownload(path, filename) {
   try {
-    const btn = event.currentTarget;
-    const originalHTML = btn.innerHTML;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-    btn.disabled = true;
-    
-    // Utilisation du chemin relatif local
-    const url = `${FILES_BASE}/${path}`;
-    
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Network response was not ok');
-    
-    const blob = await response.blob();
-    const blobUrl = window.URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = blobUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    
-    setTimeout(() => {
-      window.URL.revokeObjectURL(blobUrl);
-      document.body.removeChild(a);
-      btn.innerHTML = originalHTML;
-      btn.disabled = false;
-    }, 2000);
-    
-  } catch (error) {
-    console.error('Download failed:', error);
-    // Fallback si fetch échoue (rare en local)
-    window.open(`${FILES_BASE}/${path}`, '_blank');
-  }
-}
-
-function openPreview(path, type, name) {
-  // Chemin relatif local pour l'aperçu (instantané)
-  state.previewUrl = `${FILES_BASE}/${path}`;
-  state.previewType = type;
-  state.previewName = name;
-  render();
-}
-
-function closePreview() {
-  state.previewUrl = null;
-  state.previewType = null;
-  state.previewName = '';
-  render();
+    const btn = event.currentTarget; const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; btn.disabled = true;
+    const response = await fetch(`${FILES_BASE}/${path}`);
+    if (!response.ok) throw new Error('Network error');
+    const blob = await response.blob(); const blobUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.style.display = 'none'; a.href = blobUrl; a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { window.URL.revokeObjectURL(blobUrl); document.body.removeChild(a); btn.innerHTML = originalHTML; btn.disabled = false; }, 2000);
+  } catch (error) { window.open(`${FILES_BASE}/${path}`, '_blank'); }
 }
 
 /* ============================================================
-   API GITHUB (Uniquement pour Admin/Upload/Delete)
+   API GITHUB
    ============================================================ */
 async function apiRequest(endpoint, options = {}) {
   const headers = { 'Accept': 'application/vnd.github.v3+json', ...options.headers };
   if (state.githubToken) headers['Authorization'] = `token ${state.githubToken}`;
   const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `HTTP ${response.status}`);
-  }
-  if (response.status === 204) return null;
-  return response.json();
+  if (!response.ok) { const error = await response.json().catch(() => ({})); throw new Error(error.message || `HTTP ${response.status}`); }
+  if (response.status === 204) return null; return response.json();
 }
 
 async function loadManifest() {
   try {
-    const data = await apiRequest(`/${CONFIG.manifestPath}`);
-    state.manifestSha = data.sha;
-    return JSON.parse(atob(data.content));
-  } catch (e) { 
-    // Si le manifest n'existe pas sur GitHub, on essaie de le charger localement (fallback)
-    try {
-        const localResp = await fetch('./manifest.json');
-        if(localResp.ok) return await localResp.json();
-    } catch(err) {}
-    
-    if (e.message.includes('404')) return []; 
-    throw e; 
+    const data = await apiRequest(`/${CONFIG.manifestPath}`); state.manifestSha = data.sha; return JSON.parse(atob(data.content));
+  } catch (e) {
+    try { const localResp = await fetch('./manifest.json'); if(localResp.ok) return await localResp.json(); } catch(err) {}
+    if (e.message.includes('404')) return []; throw e;
   }
 }
 
 async function saveManifest(documents) {
   const content = btoa(JSON.stringify(documents, null, 2));
-  await apiRequest(`/${CONFIG.manifestPath}`, {
-    method: 'PUT',
-    body: JSON.stringify({ message: 'Update manifest', content, sha: state.manifestSha })
-  });
-  const data = await apiRequest(`/${CONFIG.manifestPath}`);
-  state.manifestSha = data.sha;
+  await apiRequest(`/${CONFIG.manifestPath}`, { method: 'PUT', body: JSON.stringify({ message: 'Update manifest', content, sha: state.manifestSha }) });
+  const data = await apiRequest(`/${CONFIG.manifestPath}`); state.manifestSha = data.sha;
 }
 
 async function uploadFileToGitHub(file, path) {
   const buffer = await file.arrayBuffer();
-  return apiRequest(`/${path}`, {
-    method: 'PUT',
-    body: JSON.stringify({ message: `Upload/Update: ${file.name}`, content: bufferToBase64(buffer) })
-  });
+  return apiRequest(`/${path}`, { method: 'PUT', body: JSON.stringify({ message: `Upload: ${file.name}`, content: bufferToBase64(buffer) }) });
 }
 
 async function deleteFileFromGitHub(path, sha) {
@@ -354,31 +382,23 @@ async function deleteFileFromGitHub(path, sha) {
    ============================================================ */
 async function loadDocuments() {
   state.loading = true; state.error = null; render();
-  try {
-    state.documents = (await loadManifest()).sort((a, b) => new Date(b.date) - new Date(a.date));
-  } catch (e) { state.error = `Erreur: ${e.message}`; state.documents = []; }
+  try { state.documents = (await loadManifest()).sort((a, b) => new Date(b.date) - new Date(a.date)); }
+  catch (e) { state.error = `Erreur: ${e.message}`; state.documents = []; }
   finally { state.loading = false; render(); }
 }
 
 function prepareUpload(files) {
   if (!files || files.length === 0) return;
   state.pendingFiles = files;
-  const defaultCat = (state.activeCategory !== 'Tous') ? [state.activeCategory] : [CONFIG.defaultCategories[0]];
-  state.selectedCategories = defaultCat;
+  state.selectedCategories = (state.activeCategory !== 'Tous') ? [state.activeCategory] : [CONFIG.defaultCategories[0]];
   render();
 }
 
 async function confirmUpload() {
   if (!state.pendingFiles) return;
-  
-  const files = state.pendingFiles;
-  const categories = state.selectedCategories;
-  
-  state.pendingFiles = null;
-  state.uploading = true;
-  state.error = null;
-  state.uploadStats = { current: 0, total: files.length, errors: [] };
-  render();
+  const files = state.pendingFiles; const categories = state.selectedCategories;
+  state.pendingFiles = null; state.uploading = true; state.error = null;
+  state.uploadStats = { current: 0, total: files.length, errors: [] }; render();
 
   const batchSize = 5;
   for (let i = 0; i < files.length; i += batchSize) {
@@ -386,103 +406,54 @@ async function confirmUpload() {
     await Promise.all(batch.map(async (file) => {
       try {
         if (file.size > CONFIG.maxFileMB * 1024 * 1024) throw new Error("Trop lourd");
-        const safeFileName = safeName(file.name);
-        const filePath = `${CONFIG.filesFolder}/${Date.now()}_${Math.random().toString(36).slice(2)}_${safeFileName}`;
+        const filePath = `${CONFIG.filesFolder}/${Date.now()}_${Math.random().toString(36).slice(2)}_${safeName(file.name)}`;
         await uploadFileToGitHub(file, filePath);
-        
-        state.documents.unshift({
-          id: genId(),
-          name: file.name,
-          path: filePath,
-          size: file.size,
-          type: file.type,
-          categories: categories,
-          date: new Date().toISOString(),
-          uploadedBy: 'Admin'
-        });
-      } catch (err) {
-        state.uploadStats.errors.push(`${file.name}: ${err.message}`);
-      } finally {
-        state.uploadStats.current++;
-        render();
-      }
+        state.documents.unshift({ id: genId(), name: file.name, path: filePath, size: file.size, type: file.type, categories, date: new Date().toISOString(), uploadedBy: 'Admin' });
+      } catch (err) { state.uploadStats.errors.push(`${file.name}: ${err.message}`); }
+      finally { state.uploadStats.current++; render(); }
     }));
   }
-
   if (state.documents.length > 0) await saveManifest(state.documents);
   if (state.uploadStats.errors.length > 0) state.error = `${state.uploadStats.errors.length} échecs.`;
-  state.uploading = false;
-  render();
+  state.uploading = false; render();
 }
 
-function prepareUpdate(docId) {
-  state.updatingDocId = docId;
-  render();
-}
+function prepareUpdate(docId) { state.updatingDocId = docId; render(); }
 
 async function confirmUpdateFile(newFile) {
   if (!state.updatingDocId || !newFile) return;
   const docIndex = state.documents.findIndex(d => d.id === state.updatingDocId);
   if (docIndex === -1) return;
-  const doc = state.documents[docIndex];
-  
-  state.uploading = true;
-  state.error = null;
-  render();
-
+  state.uploading = true; state.error = null; render();
   try {
-    await uploadFileToGitHub(newFile, doc.path);
-    state.documents[docIndex].size = newFile.size;
-    state.documents[docIndex].date = new Date().toISOString();
-    await saveManifest(state.documents);
-    state.updatingDocId = null;
-    state.uploading = false;
-    render();
-  } catch (e) {
-    state.error = `Erreur update: ${e.message}`;
-    state.uploading = false;
-    render();
-  }
+    await uploadFileToGitHub(newFile, state.documents[docIndex].path);
+    state.documents[docIndex].size = newFile.size; state.documents[docIndex].date = new Date().toISOString();
+    await saveManifest(state.documents); state.updatingDocId = null; state.uploading = false; render();
+  } catch (e) { state.error = `Erreur update: ${e.message}`; state.uploading = false; render(); }
 }
 
 async function deleteDocument(docId) {
   if (!confirm('Supprimer ce document ?')) return;
-  const idx = state.documents.findIndex(d => d.id === docId);
-  if (idx === -1) return;
+  const idx = state.documents.findIndex(d => d.id === docId); if (idx === -1) return;
   const doc = state.documents[idx];
   try {
     const fileData = await apiRequest(`/${doc.path}`);
     await deleteFileFromGitHub(doc.path, fileData.sha);
-    state.documents.splice(idx, 1);
-    await saveManifest(state.documents);
+    state.documents.splice(idx, 1); await saveManifest(state.documents);
   } catch (e) { state.error = `Erreur suppression: ${e.message}`; render(); }
 }
 
 function handleLogin(token) {
   if (!token) { state.loginError = 'Token requis'; render(); return; }
-  state.githubToken = token; state.isAdmin = true; state.showLogin = false; state.loginError = null;
-  loadDocuments();
+  state.githubToken = token; state.isAdmin = true; state.showLogin = false; state.loginError = null; loadDocuments();
 }
-
-function handleLogout() {
-  state.isAdmin = false;
-  state.githubToken = "";
-  state.showLogin = false;
-  render();
-}
-
+function handleLogout() { state.isAdmin = false; state.githubToken = ""; state.showLogin = false; render(); }
 function toggleCategory(cat) {
-  if (state.selectedCategories.includes(cat)) {
-    state.selectedCategories = state.selectedCategories.filter(c => c !== cat);
-  } else {
-    state.selectedCategories.push(cat);
-  }
+  if (state.selectedCategories.includes(cat)) state.selectedCategories = state.selectedCategories.filter(c => c !== cat);
+  else state.selectedCategories.push(cat);
   render();
 }
 
-/* ============================================================
-   DRAG & DROP
-   ============================================================ */
 function handleDragOver(e) { e.preventDefault(); state.isDragging = true; render(); }
 function handleDragLeave(e) { e.preventDefault(); state.isDragging = false; render(); }
 function handleDrop(e) {
@@ -515,8 +486,8 @@ function render() {
           </div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-          <button onclick="toggleTheme()" class="btn-touch w-10 h-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition focus-ring text-ink dark:text-dark-text" title="Thème">
-            <i class="fa-solid ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
+          <button onclick="toggleTheme()" class="btn-touch w-10 h-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition focus-ring text-ink dark:text-dark-text" title="Changer le thème">
+            <i class="fa-solid ${isDark ? 'fa-sun' : 'fa-moon'} transition-transform duration-500"></i>
           </button>
           <button onclick="${state.isAdmin ? 'handleLogout()' : 'state.showLogin=true;render()'}" 
             class="btn-touch px-3 py-2 rounded-lg transition-all duration-300 focus-ring text-sm font-medium shadow-md ${state.isAdmin ? 'bg-rust text-white' : 'bg-teal text-white'}">
@@ -526,94 +497,62 @@ function render() {
       </div>
     </header>
 
-    <main class="flex-1 max-w-7xl mx-auto px-4 py-6 w-full animate-slide-up" 
-      ondragover="handleDragOver(event)" 
-      ondragleave="handleDragLeave(event)" 
-      ondrop="handleDrop(event)">
-      
+    <main class="flex-1 max-w-7xl mx-auto px-4 py-6 w-full animate-slide-up" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
       ${state.error ? `<div class="mb-6 p-4 bg-rust-light border border-rust/30 text-rust rounded-xl text-sm shadow-sm"><i class="fa-solid fa-circle-exclamation mr-2"></i>${esc(state.error)}</div>` : ''}
 
       <div class="mb-6 space-y-4">
         <div class="flex flex-col sm:flex-row gap-3">
           <div class="relative flex-1 group">
-            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-inksoft dark:text-dark-soft"></i>
-            <input type="text" placeholder="Rechercher..." value="${esc(state.search)}"
-              oninput="state.search=this.value;render()"
+            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-inksoft dark:text-dark-soft transition-colors group-focus-within:text-teal"></i>
+            <input type="text" placeholder="Rechercher..." value="${esc(state.search)}" oninput="state.search=this.value;render()"
               class="w-full pl-10 pr-4 py-3 border border-line rounded-xl bg-card focus-ring text-sm dark:bg-dark-card dark:border-dark-line dark:text-dark-text shadow-sm" />
           </div>
-          
           ${state.isAdmin ? `
             <label class="btn-touch px-4 py-3 bg-teal text-white rounded-xl hover:bg-teal-dark transition-all cursor-pointer focus-ring inline-flex items-center justify-center gap-2 text-sm font-medium whitespace-nowrap shadow-md active:scale-95">
-              <i class="fa-solid fa-cloud-arrow-up"></i>
-              <span>Ajouter</span>
+              <i class="fa-solid fa-cloud-arrow-up"></i><span>Ajouter</span>
               <input type="file" multiple onchange="prepareUpload(this.files)" class="hidden"/>
-            </label>
-          ` : ''}
+            </label>` : ''}
         </div>
-
         <div class="flex overflow-x-auto pb-2 gap-2 no-scrollbar">
-          <button onclick="state.activeCategory='Tous';render()"
-            class="px-4 py-2 rounded-full text-sm transition-all whitespace-nowrap shadow-sm ${state.activeCategory==='Tous' ? 'bg-teal text-white font-semibold' : 'bg-card border border-line text-inksoft dark:bg-dark-card dark:border-dark-line dark:text-dark-soft'}">
-            Tous
-          </button>
-          ${CONFIG.defaultCategories.map(cat => `
-            <button onclick="state.activeCategory='${esc(cat)}';render()"
-              class="px-4 py-2 rounded-full text-sm transition-all whitespace-nowrap shadow-sm ${state.activeCategory===cat ? 'bg-teal text-white font-semibold' : 'bg-card border border-line text-inksoft dark:bg-dark-card dark:border-dark-line dark:text-dark-soft'}">${esc(cat)}</button>
-          `).join('')}
+          <button onclick="state.activeCategory='Tous';render()" class="px-4 py-2 rounded-full text-sm transition-all whitespace-nowrap shadow-sm ${state.activeCategory==='Tous' ? 'bg-teal text-white font-semibold' : 'bg-card border border-line text-inksoft dark:bg-dark-card dark:border-dark-line dark:text-dark-soft'}">Tous</button>
+          ${CONFIG.defaultCategories.map(cat => `<button onclick="state.activeCategory='${esc(cat)}';render()" class="px-4 py-2 rounded-full text-sm transition-all whitespace-nowrap shadow-sm ${state.activeCategory===cat ? 'bg-teal text-white font-semibold' : 'bg-card border border-line text-inksoft dark:bg-dark-card dark:border-dark-line dark:text-dark-soft'}">${esc(cat)}</button>`).join('')}
         </div>
       </div>
 
       ${state.uploading ? `
-        <div class="mb-6 p-4 bg-card border border-line rounded-xl shadow-sm dark:bg-dark-card dark:border-dark-line">
-          <div class="flex justify-between text-sm mb-2">
-            <span class="font-bold text-teal"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Upload...</span>
-            <span class="text-inksoft dark:text-dark-soft">${state.uploadStats.current}/${state.uploadStats.total}</span>
-          </div>
-          <div class="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
-            <div class="bg-teal h-2 rounded-full transition-all" style="width: ${(state.uploadStats.current / state.uploadStats.total) * 100}%"></div>
-          </div>
-        </div>
-      ` : ''}
+        <div class="mb-6 p-4 bg-card border border-line rounded-xl shadow-sm dark:bg-dark-card dark:border-dark-line animate-fade-in">
+          <div class="flex justify-between text-sm mb-2"><span class="font-bold text-teal"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Upload...</span><span class="text-inksoft dark:text-dark-soft">${state.uploadStats.current}/${state.uploadStats.total}</span></div>
+          <div class="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2"><div class="bg-teal h-2 rounded-full transition-all duration-500" style="width: ${(state.uploadStats.current / state.uploadStats.total) * 100}%"></div></div>
+        </div>` : ''}
 
       ${state.loading ? `
         <div class="flex flex-col justify-center items-center py-20 animate-pulse">
-          <i class="fa-solid fa-circle-notch fa-spin text-4xl text-teal mb-4"></i>
-          <p class="text-inksoft dark:text-dark-soft">Chargement...</p>
+          <div class="w-12 h-12 border-4 border-teal/30 border-t-teal rounded-full spin mb-4"></div>
+          <p class="text-inksoft dark:text-dark-soft">Chargement des documents...</p>
         </div>` : 
         filteredDocs.length === 0 ? `
-          <div class="text-center py-20 text-inksoft dark:text-dark-soft bg-card rounded-2xl border-2 border-dashed border-line dark:bg-dark-card dark:border-dark-line">
-            <i class="fa-regular fa-folder-open text-4xl mb-4 opacity-50"></i>
-            <p>Rien trouvé</p>
+          <div class="text-center py-20 text-inksoft dark:text-dark-soft bg-card rounded-2xl border-2 border-dashed border-line dark:bg-dark-card dark:border-dark-line animate-fade-in">
+            <i class="fa-regular fa-folder-open text-4xl mb-4 opacity-50"></i><p>Rien trouvé</p>
           </div>` :
           `<div class="doc-list-grid">
             ${filteredDocs.map((doc, index) => {
-              const ext = extOf(doc.name);
-              const color = extColor(ext);
-              
-              // On utilise le chemin relatif stocké dans doc.path (ex: files/monfichier.pdf)
-              const canPreview = isPreviewable(ext);
-              
+              const ext = extOf(doc.name); const color = extColor(ext);
               let iconClass = "fa-file";
               if (['PDF'].includes(ext)) iconClass = "fa-file-pdf";
               else if (['DOC','DOCX','ODT'].includes(ext)) iconClass = "fa-file-word";
               else if (['XLS','XLSX'].includes(ext)) iconClass = "fa-file-excel";
               else if (['PPT','PPTX','ODP'].includes(ext)) iconClass = "fa-file-powerpoint";
-              else if (['JPG','PNG','JPEG','GIF','WEBP'].includes(ext)) iconClass = "fa-file-image";
+              else if (['JPG','PNG','JPEG'].includes(ext)) iconClass = "fa-file-image";
               else if (['ZIP','RAR'].includes(ext)) iconClass = "fa-file-zipper";
-
               const cats = doc.categories || (doc.category ? [doc.category] : ['Autres']);
 
               return `
                 <div class="stagger-item doc-card bg-card border border-line hover-lift group dark:bg-dark-card dark:border-dark-line" style="animation-delay: ${index * 0.05}s">
-                  
-                  <!-- Icône -->
                   <div class="shrink-0 mt-1">
                     <div class="flex items-center justify-center doc-icon-box rounded-xl bg-${color}-light text-${color} shadow-sm dark:bg-opacity-20">
                       <i class="fa-solid ${iconClass}"></i>
                     </div>
                   </div>
-
-                  <!-- Infos -->
                   <div class="info-area pt-1">
                     <h3 class="font-bold text-base sm:text-lg text-ink truncate pr-2 dark:text-dark-text mb-1" title="${esc(doc.name)}">${esc(doc.name)}</h3>
                     <div class="flex flex-wrap items-center gap-2 mb-2">
@@ -625,71 +564,23 @@ function render() {
                       <span><i class="fa-regular fa-calendar mr-1"></i>${formatDate(doc.date)}</span>
                     </div>
                   </div>
-                  
-                  <!-- Zone d'Actions -->
                   <div class="action-area">
-                    <div class="action-buttons-group">
-                      <button onclick="forceDownload('${doc.path}', '${esc(doc.name).replace(/'/g, "\\'")}')" 
-                        class="btn-touch download-btn bg-teal text-white rounded-lg hover:bg-teal-dark transition-all text-sm font-bold shadow-sm active:scale-95 flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-download"></i>
-                        <span>Télécharger</span>
-                      </button>
-                      
-                      ${canPreview ? `
-                        <button onclick="openPreview('${doc.path}', '${ext === 'PDF' ? 'pdf' : 'image'}', '${esc(doc.name).replace(/'/g, "\\'")}')" 
-                          class="btn-touch preview-btn bg-paper text-ink border border-line rounded-lg hover:bg-gray-100 transition-all text-sm font-bold shadow-sm active:scale-95 flex items-center justify-center gap-2 dark:bg-dark-card dark:border-dark-line dark:text-dark-text dark:hover:bg-gray-700">
-                          <i class="fa-solid fa-eye"></i>
-                          <span class="hidden sm:inline">Aperçu</span>
-                        </button>
-                      ` : ''}
-                    </div>
-                    
+                    <button onclick="forceDownload('${doc.path}', '${esc(doc.name).replace(/'/g, "\\'")}')" 
+                      class="btn-touch download-btn bg-teal text-white rounded-lg hover:bg-teal-dark transition-all text-sm font-bold shadow-sm active:scale-95 flex items-center justify-center gap-2">
+                      <i class="fa-solid fa-download"></i><span>Télécharger</span>
+                    </button>
                     ${state.isAdmin ? `
                       <div class="admin-actions-row">
-                        <button onclick="prepareUpdate('${doc.id}')" class="btn-touch admin-btn bg-gold-light text-gold rounded-lg hover:bg-gold hover:text-white transition-all dark:bg-opacity-20" title="Mettre à jour">
-                          <i class="fa-solid fa-rotate"></i>
-                        </button>
-                        <button onclick="deleteDocument('${doc.id}')" class="btn-touch admin-btn bg-rust-light text-rust rounded-lg hover:bg-rust hover:text-white transition-all dark:bg-opacity-20" title="Supprimer">
-                          <i class="fa-solid fa-trash-can"></i>
-                        </button>
-                      </div>
-                    ` : ''}
+                        <button onclick="prepareUpdate('${doc.id}')" class="btn-touch admin-btn bg-gold-light text-gold rounded-lg hover:bg-gold hover:text-white transition-all dark:bg-opacity-20" title="Mettre à jour"><i class="fa-solid fa-rotate"></i></button>
+                        <button onclick="deleteDocument('${doc.id}')" class="btn-touch admin-btn bg-rust-light text-rust rounded-lg hover:bg-rust hover:text-white transition-all dark:bg-opacity-20" title="Supprimer"><i class="fa-solid fa-trash-can"></i></button>
+                      </div>` : ''}
                   </div>
-
-                </div>
-              `;
+                </div>`;
             }).join('')}
           </div>`
       }
     </main>
 
-    <!-- MODALE DE PRÉVISUALISATION (Via chemin relatif local) -->
-    ${state.previewUrl ? `
-      <div class="preview-modal animate-fade-in">
-        <div class="preview-header">
-          <div class="flex items-center gap-3 text-white">
-            <i class="fa-solid ${state.previewType === 'pdf' ? 'fa-file-pdf' : 'fa-image'} text-xl"></i>
-            <span class="font-medium truncate max-w-[200px] sm:max-w-md">${esc(state.previewName)}</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <a href="${state.previewUrl}" download target="_blank" class="btn-touch w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white transition" title="Télécharger ce fichier">
-              <i class="fa-solid fa-download"></i>
-            </a>
-            <button onclick="closePreview()" class="btn-touch w-10 h-10 rounded-full bg-white/10 hover:bg-red-500/80 text-white transition" title="Fermer">
-              <i class="fa-solid fa-xmark text-xl"></i>
-            </button>
-          </div>
-        </div>
-        <div class="preview-content">
-          ${state.previewType === 'pdf' 
-            ? `<iframe src="${state.previewUrl}#toolbar=0&navpanes=0&scrollbar=1" title="Aperçu PDF"></iframe>`
-            : `<img src="${state.previewUrl}" alt="${esc(state.previewName)}" />`
-          }
-        </div>
-      </div>
-    ` : ''}
-
-    <!-- MODALE LOGIN -->
     ${state.showLogin ? `
       <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in" onclick="if(event.target===this){state.showLogin=false;render()}">
         <div class="bg-card rounded-2xl shadow-2xl max-w-md w-full p-6 rise border border-line dark:bg-dark-card dark:border-dark-line">
@@ -700,10 +591,8 @@ function render() {
             <button onclick="handleLogin(document.getElementById('gh-token').value)" class="flex-1 py-3 bg-teal text-white rounded-xl font-bold shadow-lg">Connexion</button>
           </div>
         </div>
-      </div>
-    ` : ''}
+      </div>` : ''}
 
-    <!-- MODALE UPLOAD -->
     ${state.pendingFiles ? `
       <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in" onclick="if(event.target===this){state.pendingFiles=null;render()}">
         <div class="bg-card rounded-2xl shadow-2xl max-w-lg w-full p-0 rise border border-line dark:bg-dark-card dark:border-dark-line animate-slide-up overflow-hidden flex flex-col max-h-[90vh]">
@@ -714,10 +603,7 @@ function render() {
           <div class="p-4 flex-1 overflow-y-auto">
             <label class="block text-sm font-medium text-ink dark:text-dark-text mb-2">Catégories</label>
             <div class="grid grid-cols-2 gap-2 mb-4">
-              ${CONFIG.defaultCategories.map(cat => {
-                const isSelected = state.selectedCategories.includes(cat);
-                return `<button onclick="toggleCategory('${cat}')" class="px-3 py-2 rounded-lg text-xs border transition-all ${isSelected ? 'bg-teal text-white border-teal' : 'bg-white border-line text-inksoft dark:bg-dark-card dark:border-dark-line dark:text-dark-soft'}">${esc(cat)}</button>`;
-              }).join('')}
+              ${CONFIG.defaultCategories.map(cat => { const sel = state.selectedCategories.includes(cat); return `<button onclick="toggleCategory('${cat}')" class="px-3 py-2 rounded-lg text-xs border transition-all ${sel ? 'bg-teal text-white border-teal' : 'bg-white border-line text-inksoft dark:bg-dark-card dark:border-dark-line dark:text-dark-soft'}">${esc(cat)}</button>`; }).join('')}
             </div>
           </div>
           <div class="p-4 border-t border-line dark:border-dark-line bg-gray-50 dark:bg-gray-800/50 flex gap-3">
@@ -725,34 +611,27 @@ function render() {
             <button onclick="confirmUpload()" class="flex-1 py-3 bg-teal text-white rounded-xl font-bold shadow-lg">Uploader</button>
           </div>
         </div>
-      </div>
-    ` : ''}
+      </div>` : ''}
 
-    <!-- MODALE UPDATE -->
     ${state.updatingDocId ? `
       <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in" onclick="if(event.target===this){state.updatingDocId=null;render()}">
         <div class="bg-card rounded-2xl shadow-2xl max-w-md w-full p-6 rise border border-line dark:bg-dark-card dark:border-dark-line animate-slide-up">
           <h2 class="font-display text-xl font-bold mb-2 dark:text-dark-text">Mettre à jour</h2>
-          <p class="text-sm text-inksoft dark:text-dark-soft mb-6">Choisissez le nouveau fichier pour remplacer l'ancien.</p>
+          <p class="text-sm text-inksoft dark:text-dark-soft mb-6">Choisissez le nouveau fichier.</p>
           <label class="block w-full cursor-pointer border-2 border-dashed border-line rounded-xl p-6 text-center hover:bg-gray-50 dark:border-dark-line dark:hover:bg-gray-800">
             <input type="file" class="hidden" onchange="confirmUpdateFile(this.files[0])" />
             <i class="fa-solid fa-cloud-arrow-up text-2xl text-inksoft mb-2"></i>
             <p class="font-medium text-ink dark:text-dark-text">Sélectionner un fichier</p>
           </label>
-          <div class="mt-6 flex justify-end">
-             <button onclick="state.updatingDocId=null;render()" class="px-4 py-2 text-sm text-inksoft dark:text-dark-soft">Annuler</button>
-          </div>
+          <div class="mt-6 flex justify-end"><button onclick="state.updatingDocId=null;render()" class="px-4 py-2 text-sm text-inksoft dark:text-dark-soft">Annuler</button></div>
         </div>
-      </div>
-    ` : ''}
+      </div>` : ''}
     
-    <footer class="border-t border-line mt-auto py-6 text-center text-inksoft text-xs bg-card dark:bg-dark-card dark:border-dark-line dark:text-dark-soft">
+    <footer class="border-t border-line mt-auto py-6 text-center text-inksoft text-xs bg-card dark:bg-dark-card dark:border-dark-line dark:text-dark-soft animate-fade-in">
       <p><i class="fa-brands fa-github mr-1"></i> ${esc(CONFIG.githubOwner)}/${esc(CONFIG.githubRepo)}</p>
     </footer>
   `;
 }
-
-loadDocuments();
 </script>
 </body>
 </html>
